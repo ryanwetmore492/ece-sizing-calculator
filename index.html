@@ -2035,11 +2035,11 @@
             <thead>
               <tr>
                 <th>Tier</th>
-                <th><span class="tip" data-tip="Primary-only on-disk data: raw ingest ÷ compression ratio × overhead multiplier × retention days.">Primary Data</span></th>
-                <th><span class="tip" data-tip="Additional storage consumed by replica copies: primary data × replica count. Cold and frozen tiers use searchable snapshots — no local replicas.">Replica Overhead</span></th>
-                <th><span class="tip" data-tip="Total on-node storage including watermark buffer: (primary + replicas) × watermark multiplier.">Total On-Node</span></th>
+                <th>Primary Data <span class="tip" data-tip="Primary-only on-disk data: raw ingest ÷ compression ratio × overhead multiplier × retention days.">?</span></th>
+                <th>Replica Overhead <span class="tip" data-tip="Additional storage consumed by replica copies: primary data × replica count. Cold and frozen tiers use searchable snapshots — no local replicas.">?</span></th>
+                <th>Total On-Node <span class="tip" data-tip="Total on-node storage including watermark buffer: (primary + replicas) × watermark multiplier.">?</span></th>
                 <th>Replicas</th>
-                <th><span class="tip" data-tip="Effective compression ratio applied to this tier's ingest before storage calculations.">Compression</span></th>
+                <th>Compression <span class="tip" data-tip="Effective compression ratio applied to this tier's ingest before storage calculations.">?</span></th>
               </tr>
             </thead>
             <tbody id="storageBreakdownBody"></tbody>
