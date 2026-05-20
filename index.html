@@ -967,6 +967,111 @@
       margin-top: var(--space-4);
     }
 
+    /* ─── Comparison Panel ───────────────────────────────────────── */
+    .compare-toggle-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-2);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: var(--text-sm); font-family: var(--font-body);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .compare-toggle-btn:hover { background: var(--surface-2); color: var(--text); }
+    .compare-toggle-btn.active {
+      background: var(--accent); color: white;
+      border-color: var(--accent);
+    }
+    #comparePanel {
+      margin-top: var(--space-4);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .compare-panel-header {
+      background: var(--surface-2);
+      padding: var(--space-3) var(--space-4);
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border-2);
+    }
+    .compare-panel-title {
+      font-size: var(--text-sm); font-weight: 600; color: var(--text);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .compare-panel-body { padding: var(--space-4); }
+    .compare-inputs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+    .compare-field label {
+      display: block;
+      font-size: var(--text-xs); font-weight: 600;
+      color: var(--text-muted); margin-bottom: 4px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .compare-field input {
+      width: 100%; box-sizing: border-box;
+      padding: 6px 10px;
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      color: var(--text);
+      font-size: var(--text-sm); font-family: var(--font-mono);
+    }
+    .compare-field input:focus { outline: none; border-color: var(--accent); }
+    .compare-group-label {
+      grid-column: 1 / -1;
+      font-size: var(--text-xs); font-weight: 700;
+      color: var(--accent); text-transform: uppercase;
+      letter-spacing: 0.07em; padding-bottom: 2px;
+      border-bottom: 1px solid var(--border-1); margin-bottom: 2px;
+    }
+    /* Diff table */
+    .diff-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .diff-table th {
+      background: var(--surface-2); color: var(--text-muted);
+      font-size: var(--text-xs); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 8px 12px; text-align: left;
+      border-bottom: 1px solid var(--border-2);
+    }
+    .diff-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-1);
+      vertical-align: middle;
+    }
+    .diff-table tr:last-child td { border-bottom: none; }
+    .diff-table .row-label { font-weight: 600; color: var(--text); }
+    .diff-table .col-rec  { color: var(--text-muted); }
+    .diff-table .col-act  { font-weight: 600; }
+    .diff-table .col-delta { font-size: var(--text-xs); }
+    /* Status pill */
+    .diff-ok   { color: var(--c-ok); }
+    .diff-warn { color: var(--c-warn); }
+    .diff-bad  { color: var(--c-bad); }
+    .diff-pill {
+      display: inline-block; padding: 2px 8px;
+      border-radius: 99px; font-size: var(--text-xs); font-weight: 600;
+    }
+    .diff-pill.ok   { background: color-mix(in srgb, var(--c-ok)   15%, transparent); color: var(--c-ok); }
+    .diff-pill.warn { background: color-mix(in srgb, var(--c-warn) 15%, transparent); color: var(--c-warn); }
+    .diff-pill.bad  { background: color-mix(in srgb, var(--c-bad)  15%, transparent); color: var(--c-bad); }
+    .diff-pill.na   { background: var(--surface-2); color: var(--text-faint); }
+    .diff-section-row td {
+      background: var(--surface-2);
+      font-size: var(--text-xs); font-weight: 700;
+      color: var(--accent); text-transform: uppercase;
+      letter-spacing: 0.07em; padding: 5px 12px;
+    }
+    .compare-actions {
+      display: flex; gap: var(--space-3); flex-wrap: wrap;
+      margin-top: var(--space-4);
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--border-1);
+    }
     /* ─── Dark mode toggle ─────────────────────────────────────────── */
     .theme-toggle {
       width: 36px; height: 36px;
@@ -1012,7 +1117,7 @@
       </svg>
       <div class="logo-text">
         <h1>ECE Sizing Calculator</h1>
-        <span>Elastic Cloud Enterprise Deployment Planner <span class="version-badge">v1.0.9</span></span>
+        <span>Elastic Cloud Enterprise Deployment Planner <span class="version-badge">v1.0.10</span></span>
       </div>
     </div>
     <div class="header-actions">
@@ -1766,7 +1871,154 @@
           Import JSON
         </button>
         <input type="file" id="importFileInput" accept=".json,application/json" style="display:none" onchange="importJson(event)">
+        <button class="compare-toggle-btn" id="compareToggleBtn" onclick="toggleComparePanel()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="18" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/></svg>
+          Compare Deployment
+        </button>
       </div>
+
+      <!-- ─── Compare Panel ───────────────────────────────────────── -->
+      <div id="comparePanel" style="display:none">
+        <div class="compare-panel-header">
+          <div class="compare-panel-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="18" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/></svg>
+            Compare Against Existing Deployment
+          </div>
+          <span style="font-size:var(--text-xs);color:var(--text-muted)">Enter your actual deployment values below to see how they compare to the calculator's recommendations.</span>
+        </div>
+        <div class="compare-panel-body">
+
+          <div class="compare-inputs-grid">
+            <div class="compare-group-label">Hot Tier</div>
+            <div class="compare-field">
+              <label>Node RAM (GB)</label>
+              <input type="number" id="cmp_hotNodeRam" placeholder="e.g. 64" min="1" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Nodes / Zone</label>
+              <input type="number" id="cmp_hotNpz" placeholder="e.g. 2" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Availability Zones</label>
+              <input type="number" id="cmp_hotAzs" placeholder="e.g. 3" min="1" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Storage / Node (GB)</label>
+              <input type="number" id="cmp_hotStoragePerNode" placeholder="e.g. 1920" min="0" oninput="renderCompareDiff()">
+            </div>
+
+            <div class="compare-group-label">Warm Tier</div>
+            <div class="compare-field">
+              <label>Node RAM (GB)</label>
+              <input type="number" id="cmp_warmNodeRam" placeholder="e.g. 64" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Nodes / Zone</label>
+              <input type="number" id="cmp_warmNpz" placeholder="e.g. 2" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Availability Zones</label>
+              <input type="number" id="cmp_warmAzs" placeholder="e.g. 3" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Storage / Node (GB)</label>
+              <input type="number" id="cmp_warmStoragePerNode" placeholder="e.g. 3840" min="0" oninput="renderCompareDiff()">
+            </div>
+
+            <div class="compare-group-label">Cold Tier</div>
+            <div class="compare-field">
+              <label>Node RAM (GB)</label>
+              <input type="number" id="cmp_coldNodeRam" placeholder="e.g. 8" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Nodes / Zone</label>
+              <input type="number" id="cmp_coldNpz" placeholder="e.g. 1" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Availability Zones</label>
+              <input type="number" id="cmp_coldAzs" placeholder="e.g. 1" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Storage / Node (GB)</label>
+              <input type="number" id="cmp_coldStoragePerNode" placeholder="e.g. 0" min="0" oninput="renderCompareDiff()">
+            </div>
+
+            <div class="compare-group-label">Frozen Tier</div>
+            <div class="compare-field">
+              <label>Node RAM (GB)</label>
+              <input type="number" id="cmp_frozenNodeRam" placeholder="e.g. 8" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Nodes / Zone</label>
+              <input type="number" id="cmp_frozenNpz" placeholder="e.g. 1" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Availability Zones</label>
+              <input type="number" id="cmp_frozenAzs" placeholder="e.g. 1" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Cache / Node (GB)</label>
+              <input type="number" id="cmp_frozenCachePerNode" placeholder="e.g. 1000" min="0" oninput="renderCompareDiff()">
+            </div>
+
+            <div class="compare-group-label">Kibana &amp; Infrastructure</div>
+            <div class="compare-field">
+              <label>Kibana RAM (GB)</label>
+              <input type="number" id="cmp_kibanaRam" placeholder="e.g. 8" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Kibana Instances</label>
+              <input type="number" id="cmp_kibanaCount" placeholder="e.g. 2" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Master RAM (GB)</label>
+              <input type="number" id="cmp_masterRam" placeholder="e.g. 8" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Master Count</label>
+              <input type="number" id="cmp_masterCount" placeholder="e.g. 3" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Coordinator RAM (GB)</label>
+              <input type="number" id="cmp_coordRam" placeholder="e.g. 8" min="0" oninput="renderCompareDiff()">
+            </div>
+            <div class="compare-field">
+              <label>Coordinator Count</label>
+              <input type="number" id="cmp_coordCount" placeholder="e.g. 2" min="0" oninput="renderCompareDiff()">
+            </div>
+          </div>
+
+          <!-- Diff table -->
+          <div id="compareDiffWrap" style="display:none; overflow-x:auto">
+            <table class="diff-table">
+              <thead>
+                <tr>
+                  <th style="width:22%">Component</th>
+                  <th style="width:20%">Metric</th>
+                  <th style="width:18%">Recommended</th>
+                  <th style="width:18%">Actual</th>
+                  <th style="width:12%">Delta</th>
+                  <th style="width:10%">Status</th>
+                </tr>
+              </thead>
+              <tbody id="compareDiffBody"></tbody>
+            </table>
+
+            <div class="compare-actions">
+              <button class="btn btn-ghost" onclick="exportCompareJson()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export Comparison JSON
+              </button>
+              <button class="btn btn-ghost" onclick="clearCompareInputs()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+                Clear
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1867,7 +2119,7 @@ function applyArchPreset(p) {
     el('hotAzs').value=2; el('warmAzs').value=2; el('coldAzs').value=1; el('frozenAzs').value=1; el('kibAzs').value=2;
     el('hotReplicas').value=1; el('warmReplicas').value=1; el('coldReplicas').value=0;
   } else if (p === 'expedient') {
-    el('hotRatio').value=96; el('warmRatio').value=200; el('coldRatio').value=160; el('frozenRatio').value=1500;
+    el('hotRatio').value=96; el('warmRatio').value=200; el('coldRatio').value=200; el('frozenRatio').value=1500;
     el('hotAzs').value=2; el('warmAzs').value=2; el('coldAzs').value=1; el('frozenAzs').value=1; el('kibAzs').value=2;
     el('hotReplicas').value=1; el('warmReplicas').value=1; el('coldReplicas').value=0;
   } else if (p === 'minimal') {
@@ -2967,6 +3219,296 @@ function showImportError(msg) {
 // ─── Init ──────────────────────────────────────────────────────────────
 loadFromUrl();
 calculate();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPARE DEPLOYMENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function toggleComparePanel() {
+  const panel = document.getElementById('comparePanel');
+  const btn   = document.getElementById('compareToggleBtn');
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  btn.classList.toggle('active', open);
+  if (open) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Helper: read a compare input field as float (returns NaN if blank)
+function cmpVal(id) {
+  const v = document.getElementById(id);
+  return v ? parseFloat(v.value) : NaN;
+}
+
+// Format GB values the same way the main calculator does
+function fmtGB(gb) {
+  if (isNaN(gb) || gb === 0) return '—';
+  if (gb >= 1024) return (gb / 1024).toFixed(2) + ' TB';
+  return gb.toFixed(0) + ' GB';
+}
+
+// Build a single diff row
+// dir: 'higher_better' | 'lower_better' | 'match'
+// tolerance: fraction below recommendation that is still 'warn' (default 0.20)
+function diffRow(component, metric, rec, act, unit, dir, tolerance) {
+  tolerance = tolerance === undefined ? 0.20 : tolerance;
+  const hasRec = !isNaN(rec) && rec !== null;
+  const hasAct = !isNaN(act) && act !== null;
+
+  let deltaText = '—';
+  let sev = 'na';
+
+  if (hasRec && hasAct) {
+    const diff = act - rec;
+    const pct  = rec !== 0 ? (diff / rec) * 100 : 0;
+    const sign = diff >= 0 ? '+' : '';
+    if (unit === 'GB' || unit === 'TB') {
+      deltaText = (diff >= 0 ? '+' : '') + fmtGB(Math.abs(diff)) + (diff < 0 ? ' under' : ' over');
+    } else {
+      deltaText = sign + diff.toFixed(dir === 'match' ? 0 : 0) + ' ' + unit + ' (' + sign + pct.toFixed(0) + '%)';
+    }
+
+    if (dir === 'higher_better') {
+      if (act >= rec)                    sev = 'ok';
+      else if (act >= rec * (1 - tolerance)) sev = 'warn';
+      else                               sev = 'bad';
+    } else if (dir === 'lower_better') {
+      if (act <= rec)                    sev = 'ok';
+      else if (act <= rec * (1 + tolerance)) sev = 'warn';
+      else                               sev = 'bad';
+    } else { // match
+      if (act === rec)                   sev = 'ok';
+      else if (Math.abs(pct) <= tolerance * 100) sev = 'warn';
+      else                               sev = 'bad';
+    }
+  } else if (!hasAct) {
+    deltaText = 'not entered';
+  }
+
+  const pillLabel = { ok: 'OK', warn: 'Near', bad: 'Under', na: 'N/A' };
+  if (dir === 'lower_better' && sev === 'bad') pillLabel.bad = 'Over';
+
+  const recText = hasRec ? (unit === 'GB' || unit === 'TB' ? fmtGB(rec) : rec.toFixed(0) + ' ' + unit) : '—';
+  const actText = hasAct ? (unit === 'GB' || unit === 'TB' ? fmtGB(act) : act.toFixed(0) + ' ' + unit) : '—';
+
+  return `<tr>
+    <td class="row-label">${component}</td>
+    <td class="col-label" style="color:var(--text-muted);font-size:var(--text-xs)">${metric}</td>
+    <td class="col-rec">${recText}</td>
+    <td class="col-act ${sev === 'ok' ? 'diff-ok' : sev === 'warn' ? 'diff-warn' : sev === 'bad' ? 'diff-bad' : ''}">${actText}</td>
+    <td class="col-delta" style="color:var(--text-muted)">${deltaText}</td>
+    <td><span class="diff-pill ${sev}">${pillLabel[sev] || sev}</span></td>
+  </tr>`;
+}
+
+function sectionRow(label) {
+  return `<tr class="diff-section-row"><td colspan="6">${label}</td></tr>`;
+}
+
+function renderCompareDiff() {
+  const calc = window._lastCalc;
+  const wrap = document.getElementById('compareDiffWrap');
+  const body = document.getElementById('compareDiffBody');
+  if (!calc) { wrap.style.display = 'none'; return; }
+
+  // ── Actual values from compare inputs ──
+  const hotNR   = cmpVal('cmp_hotNodeRam');    const hotNpz  = cmpVal('cmp_hotNpz');    const hotAz  = cmpVal('cmp_hotAzs');
+  const hotSpN  = cmpVal('cmp_hotStoragePerNode');
+  const wrmNR   = cmpVal('cmp_warmNodeRam');   const wrmNpz  = cmpVal('cmp_warmNpz');   const wrmAz  = cmpVal('cmp_warmAzs');
+  const wrmSpN  = cmpVal('cmp_warmStoragePerNode');
+  const cldNR   = cmpVal('cmp_coldNodeRam');   const cldNpz  = cmpVal('cmp_coldNpz');   const cldAz  = cmpVal('cmp_coldAzs');
+  const cldSpN  = cmpVal('cmp_coldStoragePerNode');
+  const frzNR   = cmpVal('cmp_frozenNodeRam'); const frzNpz  = cmpVal('cmp_frozenNpz'); const frzAz  = cmpVal('cmp_frozenAzs');
+  const frzCpN  = cmpVal('cmp_frozenCachePerNode');
+  const kibR    = cmpVal('cmp_kibanaRam');     const kibC    = cmpVal('cmp_kibanaCount');
+  const mstR    = cmpVal('cmp_masterRam');     const mstC    = cmpVal('cmp_masterCount');
+  const crdR    = cmpVal('cmp_coordRam');      const crdC    = cmpVal('cmp_coordCount');
+
+  // Check if any actual value has been entered at all
+  const anyEntered = [hotNR, hotNpz, hotAz, hotSpN,
+    wrmNR, wrmNpz, wrmAz, wrmSpN,
+    cldNR, cldNpz, cldAz, cldSpN,
+    frzNR, frzNpz, frzAz, frzCpN,
+    kibR, kibC, mstR, mstC, crdR, crdC].some(v => !isNaN(v));
+
+  if (!anyEntered) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+
+  // ── Recommended values from _lastCalc ──
+  const hotNodes  = parseInt(el('hotAzs').value||2)  * parseInt(el('hotNpz').value||1);
+  const wrmNodes  = parseInt(el('warmAzs').value||2) * parseInt(el('warmNpz').value||1);
+  const cldNodes  = parseInt(el('coldAzs').value||1) * parseInt(el('coldNpz').value||1);
+  const frzNodes  = parseInt(el('frozenAzs').value||1) * parseInt(el('frozenNpz').value||1);
+
+  const recHotNodeRam   = hotNodes  > 0 ? calc.hotRam    / hotNodes  : NaN;
+  const recWrmNodeRam   = wrmNodes  > 0 ? calc.warmRam   / wrmNodes  : NaN;
+  const recCldNodeRam   = cldNodes  > 0 ? calc.coldRam   / cldNodes  : NaN;
+  const recFrzNodeRam   = frzNodes  > 0 ? calc.frozenRam / frzNodes  : NaN;
+
+  const recHotStorPNode = hotNodes  > 0 ? calc.hotStorage    / hotNodes  : NaN;
+  const recWrmStorPNode = wrmNodes  > 0 ? calc.warmStorage   / wrmNodes  : NaN;
+  const recCldStorPNode = cldNodes  > 0 ? (calc.coldStorage  / cldNodes) : NaN;
+  const recFrzCachePNode= frzNodes  > 0 ? (calc.frozenStorage/ frzNodes) : NaN;
+
+  // Totals from actual
+  const actHotRam  = !isNaN(hotNR) && !isNaN(hotNpz) && !isNaN(hotAz)  ? hotNR * hotNpz * hotAz  : NaN;
+  const actWrmRam  = !isNaN(wrmNR) && !isNaN(wrmNpz) && !isNaN(wrmAz)  ? wrmNR * wrmNpz * wrmAz  : NaN;
+  const actCldRam  = !isNaN(cldNR) && !isNaN(cldNpz) && !isNaN(cldAz)  ? cldNR * cldNpz * cldAz  : NaN;
+  const actFrzRam  = !isNaN(frzNR) && !isNaN(frzNpz) && !isNaN(frzAz)  ? frzNR * frzNpz * frzAz  : NaN;
+  const actHotStor = !isNaN(hotSpN) && !isNaN(hotNpz) && !isNaN(hotAz) ? hotSpN * hotNpz * hotAz  : NaN;
+  const actWrmStor = !isNaN(wrmSpN) && !isNaN(wrmNpz) && !isNaN(wrmAz) ? wrmSpN * wrmNpz * wrmAz  : NaN;
+  const actCldStor = !isNaN(cldSpN) && !isNaN(cldNpz) && !isNaN(cldAz) ? cldSpN * cldNpz * cldAz  : NaN;
+  const actFrzCache= !isNaN(frzCpN) && !isNaN(frzNpz) && !isNaN(frzAz) ? frzCpN * frzNpz * frzAz  : NaN;
+  const actKibRam  = !isNaN(kibR) && !isNaN(kibC)  ? kibR * kibC   : NaN;
+  const actMstRam  = !isNaN(mstR) && !isNaN(mstC)  ? mstR * mstC   : NaN;
+  const actCrdRam  = !isNaN(crdR) && !isNaN(crdC)  ? crdR * crdC   : NaN;
+
+  const actTotalRam = [actHotRam, actWrmRam, actCldRam, actFrzRam, actKibRam, actMstRam, actCrdRam]
+    .filter(v => !isNaN(v)).reduce((a, b) => a + b, 0) || NaN;
+  const actTotalStor = [actHotStor, actWrmStor, actCldStor].filter(v => !isNaN(v)).reduce((a, b) => a + b, 0) || NaN;
+
+  // ── Rec zone/node counts ──
+  const recHotAzs = parseInt(el('hotAzs').value||2);
+  const recHotNpz = parseInt(el('hotNpz').value||1);
+  const recWrmAzs = parseInt(el('warmAzs').value||2);
+  const recWrmNpz = parseInt(el('warmNpz').value||1);
+  const recCldAzs = parseInt(el('coldAzs').value||1);
+  const recCldNpz = parseInt(el('coldNpz').value||1);
+  const recFrzAzs = parseInt(el('frozenAzs').value||1);
+  const recFrzNpz = parseInt(el('frozenNpz').value||1);
+
+  // ── Build rows ──
+  let html = '';
+
+  // HOT
+  html += sectionRow('Hot Tier');
+  html += diffRow('Hot', 'Node RAM',          recHotNodeRam,   hotNR,   'GB', 'higher_better');
+  html += diffRow('Hot', 'Nodes / Zone',       recHotNpz,       hotNpz,  'nodes', 'higher_better', 0);
+  html += diffRow('Hot', 'Availability Zones', recHotAzs,       hotAz,   'AZs',   'match', 0);
+  html += diffRow('Hot', 'Storage / Node',     recHotStorPNode, hotSpN,  'GB', 'higher_better');
+  html += diffRow('Hot', 'Total RAM',          calc.hotRam,     actHotRam,  'GB', 'higher_better');
+  html += diffRow('Hot', 'Total Storage',      calc.hotStorage, actHotStor, 'GB', 'higher_better');
+
+  // WARM
+  const isWarm = el('enableWarm') && el('enableWarm').checked;
+  if (isWarm || !isNaN(wrmNR) || !isNaN(wrmNpz)) {
+    html += sectionRow('Warm Tier');
+    html += diffRow('Warm', 'Node RAM',          recWrmNodeRam,   wrmNR,   'GB', 'higher_better');
+    html += diffRow('Warm', 'Nodes / Zone',       recWrmNpz,       wrmNpz,  'nodes', 'higher_better', 0);
+    html += diffRow('Warm', 'Availability Zones', recWrmAzs,       wrmAz,   'AZs',   'match', 0);
+    html += diffRow('Warm', 'Storage / Node',     recWrmStorPNode, wrmSpN,  'GB', 'higher_better');
+    html += diffRow('Warm', 'Total RAM',          calc.warmRam,    actWrmRam,  'GB', 'higher_better');
+    html += diffRow('Warm', 'Total Storage',      calc.warmStorage,actWrmStor, 'GB', 'higher_better');
+  }
+
+  // COLD
+  const isCold = el('enableCold') && el('enableCold').checked;
+  if (isCold || !isNaN(cldNR) || !isNaN(cldNpz)) {
+    html += sectionRow('Cold Tier');
+    html += diffRow('Cold', 'Node RAM',          recCldNodeRam,   cldNR,   'GB', 'higher_better');
+    html += diffRow('Cold', 'Nodes / Zone',       recCldNpz,       cldNpz,  'nodes', 'higher_better', 0);
+    html += diffRow('Cold', 'Availability Zones', recCldAzs,       cldAz,   'AZs',   'match', 0);
+    html += diffRow('Cold', 'Storage / Node',     recCldStorPNode, cldSpN,  'GB', 'higher_better');
+    html += diffRow('Cold', 'Total RAM',          calc.coldRam,    actCldRam,  'GB', 'higher_better');
+  }
+
+  // FROZEN
+  const isFrozen = el('enableFrozen') && el('enableFrozen').checked;
+  if (isFrozen || !isNaN(frzNR) || !isNaN(frzNpz)) {
+    html += sectionRow('Frozen Tier');
+    html += diffRow('Frozen', 'Node RAM',         recFrzNodeRam,    frzNR,   'GB', 'higher_better');
+    html += diffRow('Frozen', 'Nodes / Zone',      recFrzNpz,        frzNpz,  'nodes', 'higher_better', 0);
+    html += diffRow('Frozen', 'Availability Zones',recFrzAzs,        frzAz,   'AZs',   'match', 0);
+    html += diffRow('Frozen', 'Cache / Node',      recFrzCachePNode, frzCpN,  'GB', 'higher_better');
+    html += diffRow('Frozen', 'Total RAM',         calc.frozenRam,   actFrzRam,'GB', 'higher_better');
+    html += diffRow('Frozen', 'Total Cache',       calc.frozenStorage,actFrzCache,'GB','higher_better');
+  }
+
+  // KIBANA / MASTERS / COORDINATORS
+  html += sectionRow('Kibana & Infrastructure');
+  const recKibRam  = parseFloat(el('kibanaRam').value||4);
+  const recKibAzs  = parseInt(el('kibAzs').value||2);
+  const recKibTotal= recKibRam * recKibAzs;
+
+  const recMstRam  = calc.rows ? (() => {
+    const r = (calc.rows||[]).find(x => x && x[0] && String(x[0]).toLowerCase().includes('master'));
+    return r ? parseFloat(String(r[1])) || NaN : NaN;
+  })() : NaN;
+
+  html += diffRow('Kibana', 'RAM / Instance',  recKibRam,   kibR, 'GB', 'higher_better');
+  html += diffRow('Kibana', 'Instance Count',  recKibAzs,   kibC, 'instances', 'higher_better', 0);
+  html += diffRow('Kibana', 'Total RAM',       recKibTotal, actKibRam, 'GB', 'higher_better');
+
+  if (!isNaN(mstR) || !isNaN(mstC)) {
+    html += diffRow('Masters', 'RAM / Node',   NaN, mstR, 'GB', 'higher_better');
+    html += diffRow('Masters', 'Node Count',   NaN, mstC, 'nodes', 'higher_better', 0);
+    html += diffRow('Masters', 'Total RAM',    NaN, actMstRam, 'GB', 'higher_better');
+  }
+  if (!isNaN(crdR) || !isNaN(crdC)) {
+    html += diffRow('Coordinators', 'RAM / Node',  NaN, crdR, 'GB', 'higher_better');
+    html += diffRow('Coordinators', 'Node Count',  NaN, crdC, 'nodes', 'higher_better', 0);
+    html += diffRow('Coordinators', 'Total RAM',   NaN, actCrdRam, 'GB', 'higher_better');
+  }
+
+  // TOTALS
+  html += sectionRow('Cluster Totals');
+  html += diffRow('Cluster', 'Total RAM',     calc.totalRam,     actTotalRam,  'GB', 'higher_better');
+  html += diffRow('Cluster', 'Total Storage', calc.totalStorage, actTotalStor, 'GB', 'higher_better');
+
+  body.innerHTML = html;
+
+  // Store for export
+  window._lastCompare = {
+    recommended: {
+      totalRam: calc.totalRam,
+      totalStorage: calc.totalStorage,
+      hotRam: calc.hotRam, warmRam: calc.warmRam,
+      coldRam: calc.coldRam, frozenRam: calc.frozenRam,
+      hotStorage: calc.hotStorage, warmStorage: calc.warmStorage,
+    },
+    actual: {
+      hot:  { nodeRam: hotNR,  npz: hotNpz,  azs: hotAz,  storagePerNode: hotSpN,  totalRam: actHotRam,  totalStorage: actHotStor },
+      warm: { nodeRam: wrmNR,  npz: wrmNpz,  azs: wrmAz,  storagePerNode: wrmSpN,  totalRam: actWrmRam,  totalStorage: actWrmStor },
+      cold: { nodeRam: cldNR,  npz: cldNpz,  azs: cldAz,  storagePerNode: cldSpN,  totalRam: actCldRam  },
+      frozen:{ nodeRam: frzNR, npz: frzNpz,  azs: frzAz,  cachePerNode: frzCpN,   totalRam: actFrzRam,  totalCache: actFrzCache },
+      kibana:{ ram: kibR, count: kibC, totalRam: actKibRam },
+      masters:{ ram: mstR, count: mstC, totalRam: actMstRam },
+      coordinators:{ ram: crdR, count: crdC, totalRam: actCrdRam },
+      totalRam: actTotalRam, totalStorage: actTotalStor,
+    }
+  };
+}
+
+function exportCompareJson() {
+  if (!window._lastCompare || !window._lastCalc) return;
+  const client = el('clientName') ? (el('clientName').value || 'client') : 'client';
+  const ts     = new Date().toISOString().slice(0,19).replace(/[T:]/g,'-');
+  const payload = {
+    export_type: 'comparison',
+    version: 'v1.0.10',
+    client,
+    generated_at: new Date().toISOString(),
+    recommended: window._lastCompare.recommended,
+    actual: window._lastCompare.actual,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ECE-Comparison-${client.replace(/\s+/g,'-')}-${ts}.json`;
+  a.click();
+}
+
+function clearCompareInputs() {
+  const ids = ['cmp_hotNodeRam','cmp_hotNpz','cmp_hotAzs','cmp_hotStoragePerNode',
+    'cmp_warmNodeRam','cmp_warmNpz','cmp_warmAzs','cmp_warmStoragePerNode',
+    'cmp_coldNodeRam','cmp_coldNpz','cmp_coldAzs','cmp_coldStoragePerNode',
+    'cmp_frozenNodeRam','cmp_frozenNpz','cmp_frozenAzs','cmp_frozenCachePerNode',
+    'cmp_kibanaRam','cmp_kibanaCount','cmp_masterRam','cmp_masterCount',
+    'cmp_coordRam','cmp_coordCount'];
+  ids.forEach(id => { const inp = document.getElementById(id); if (inp) inp.value = ''; });
+  document.getElementById('compareDiffWrap').style.display = 'none';
+  window._lastCompare = null;
+}
+
 </script>
 </body>
 </html>

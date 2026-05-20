@@ -79,15 +79,6 @@ All formulas are documented in the [ECE Sizing Calculator User Guide](./ECE_Sizi
 | `ECE_Sizing_Calculator_User_Guide.pdf` | 9-section client-facing user guide with formula reference and Elastic source citations |
 | `README.md` | This file |
 
-## Client Environment (Expedient)
-
-The calculator defaults are pre-configured for Expedient's ECE environment:
-- **14 allocators** across 3 availability zones
-- **11 allocators** at 1,412 GB RAM (AVX-512 enabled)
-- **3 allocators** at ~908 GB RAM
-- Bare metal hosts with Nutanix-backed iSCSI storage
-- ~512 logical CPUs per host
-
 ## License
 
 Internal tool — Expedient Technology Solutions. Not licensed for redistribution.
