@@ -1,0 +1,2972 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECE Deployment Sizing Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Design Tokens ───────────────────────────────────────────── */
+    :root {
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+      --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.8125rem);
+      --text-sm:   clamp(0.8125rem,0.78rem + 0.15vw, 0.875rem);
+      --text-base: clamp(0.875rem, 0.85rem + 0.15vw, 0.9375rem);
+      --text-lg:   clamp(1rem,     0.95rem + 0.3vw,  1.125rem);
+      --text-xl:   clamp(1.125rem, 1rem    + 0.5vw,  1.375rem);
+      --text-2xl:  clamp(1.375rem, 1.1rem  + 1.2vw,  1.75rem);
+
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+
+      --radius-sm: 0.3rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;
+      --radius-xl: 1rem;
+
+      --transition: 150ms cubic-bezier(0.16,1,0.3,1);
+
+      /* Tier colors */
+      --c-hot:    #e53e3e;
+      --c-warm:   #d97706;
+      --c-cold:   #2563eb;
+      --c-frozen: #0891b2;
+      --c-kibana: #7c3aed;
+      --c-infra:  #475569;
+      --c-ok:     #16a34a;
+      --c-warn:   #d97706;
+      --c-bad:    #dc2626;
+    }
+
+    /* Light mode */
+    :root, [data-theme="light"] {
+      --bg:          #f1f5f9;
+      --surface:     #ffffff;
+      --surface-2:   #f8fafc;
+      --surface-3:   #f1f5f9;
+      --border:      #e2e8f0;
+      --border-2:    #cbd5e1;
+      --text:        #0f172a;
+      --text-muted:  #475569;
+      --text-faint:  #94a3b8;
+      --primary:     #0369a1;
+      --primary-h:   #075985;
+      --primary-hl:  #e0f2fe;
+      --shadow-sm:   0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md:   0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg:   0 8px 24px rgba(0,0,0,0.10);
+      --dashboard-bg:#0f172a;
+      --dashboard-surface: #1e293b;
+      --dashboard-text: #e2e8f0;
+      --dashboard-muted: #94a3b8;
+      --dashboard-faint: #64748b;
+    }
+
+    /* Dark mode */
+    [data-theme="dark"] {
+      --bg:          #0f172a;
+      --surface:     #1e293b;
+      --surface-2:   #162032;
+      --surface-3:   #0f172a;
+      --border:      #1e293b;
+      --border-2:    #334155;
+      --text:        #e2e8f0;
+      --text-muted:  #94a3b8;
+      --text-faint:  #475569;
+      --primary:     #38bdf8;
+      --primary-h:   #7dd3fc;
+      --primary-hl:  #0c2d48;
+      --shadow-sm:   0 1px 3px rgba(0,0,0,0.3);
+      --shadow-md:   0 4px 12px rgba(0,0,0,0.4);
+      --shadow-lg:   0 8px 24px rgba(0,0,0,0.5);
+      --dashboard-bg:#020812;
+      --dashboard-surface: #0f172a;
+      --dashboard-text: #e2e8f0;
+      --dashboard-muted: #64748b;
+      --dashboard-faint: #334155;
+    }
+
+    /* ─── Base Reset ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      -webkit-font-smoothing: antialiased;
+      scroll-behavior: smooth;
+    }
+    body {
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      line-height: 1.6;
+      transition: background var(--transition), color var(--transition);
+    }
+    input, button, textarea, select { font: inherit; color: inherit; }
+    button { cursor: pointer; background: none; border: none; }
+    table { border-collapse: collapse; width: 100%; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ─── Layout ───────────────────────────────────────────────────── */
+    .app-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: var(--space-4) var(--space-6);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+    .header-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+    }
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .logo-svg { flex-shrink: 0; }
+    .logo-text h1 {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .logo-text span {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .version-badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+      color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+      border-radius: 4px;
+      padding: 1px 5px;
+      line-height: 1.6;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border-2);
+      color: var(--text-muted);
+    }
+    .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .btn-primary:hover { background: var(--primary-h); border-color: var(--primary-h); }
+    .btn-danger {
+      background: transparent;
+      border-color: #fca5a5;
+      color: #dc2626;
+    }
+    .btn-danger:hover { background: #fef2f2; }
+    [data-theme="dark"] .btn-danger:hover { background: #2d1515; }
+    .btn-success {
+      background: transparent;
+      border-color: #86efac;
+      color: #16a34a;
+    }
+    .btn-success:hover { background: #f0fdf4; }
+    [data-theme="dark"] .btn-success:hover { background: #14281e; }
+
+    .main-content {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: var(--space-6) var(--space-6) var(--space-12);
+    }
+
+    /* ─── Dashboard ────────────────────────────────────────────────── */
+    .dashboard {
+      background: var(--dashboard-bg);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      margin-bottom: var(--space-6);
+      box-shadow: var(--shadow-lg);
+    }
+    .dashboard-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+      flex-wrap: wrap;
+    }
+    .client-label {
+      font-size: var(--text-xs);
+      color: var(--dashboard-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      margin-bottom: var(--space-1);
+    }
+    .client-name-display {
+      font-size: var(--text-xl);
+      font-weight: 700;
+      color: var(--dashboard-text);
+    }
+    .retention-pill {
+      background: var(--dashboard-surface);
+      border: 1px solid rgba(148,163,184,0.2);
+      border-radius: var(--radius-full, 9999px);
+      padding: var(--space-2) var(--space-4);
+      font-size: var(--text-xs);
+      color: var(--dashboard-muted);
+    }
+    .retention-pill strong { color: var(--dashboard-text); }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+    @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; gap: var(--space-3); } }
+    .kpi {
+      background: var(--dashboard-surface);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      border: 1px solid rgba(148,163,184,0.1);
+    }
+    .kpi-label {
+      font-size: var(--text-xs);
+      color: var(--dashboard-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: var(--space-2);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .kpi-val {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      color: var(--dashboard-text);
+      font-family: var(--font-mono);
+      line-height: 1;
+    }
+    .kpi-val.dim { color: var(--dashboard-muted); }
+    .kpi-sub {
+      font-size: var(--text-xs);
+      color: var(--dashboard-muted);
+      margin-top: var(--space-2);
+    }
+
+    /* Stacked bars */
+    .bar-section { margin-bottom: var(--space-1); }
+    .bar-label {
+      font-size: var(--text-xs);
+      color: var(--dashboard-muted);
+      font-weight: 600;
+      margin-bottom: var(--space-2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stacked-bar {
+      display: flex;
+      height: 20px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .seg {
+      height: 100%;
+      transition: width 0.35s ease;
+      position: relative;
+    }
+    .seg:hover { filter: brightness(1.2); }
+    .legend {
+      display: flex;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+      margin-top: var(--space-3);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--dashboard-muted);
+    }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ─── Section Card ─────────────────────────────────────────────── */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      margin-bottom: var(--space-4);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-6);
+      cursor: pointer;
+      user-select: none;
+      gap: var(--space-3);
+    }
+    .section-header:hover { background: var(--surface-2); }
+    .section-title-group {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .section-icon {
+      width: 36px; height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: var(--primary-hl);
+      color: var(--primary);
+    }
+    .section-title {
+      font-size: var(--text-base);
+      font-weight: 700;
+      color: var(--text);
+    }
+    .section-subtitle {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .section-badge {
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      padding: 2px var(--space-3);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .chevron {
+      color: var(--text-faint);
+      transition: transform var(--transition);
+      flex-shrink: 0;
+    }
+    .chevron.open { transform: rotate(180deg); }
+    .section-body {
+      border-top: 1px solid var(--border);
+      padding: var(--space-6);
+    }
+    .section-body.hidden { display: none; }
+
+    /* ─── Form Controls ────────────────────────────────────────────── */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-5);
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+    .input-label {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .tip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px; height: 15px;
+      background: var(--text-faint);
+      color: var(--surface);
+      border-radius: 50%;
+      font-size: 9px;
+      font-weight: 700;
+      cursor: help;
+      position: relative;
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+    /* Tooltip popup — positioned by JS to stay within viewport */
+    #tip-popup {
+      display: none;
+      position: fixed;
+      background: var(--text);
+      color: var(--surface);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+      font-weight: normal;
+      line-height: 1.5;
+      width: 240px;
+      max-width: calc(100vw - 24px);
+      z-index: 9999;
+      pointer-events: none;
+      white-space: normal;
+      box-shadow: var(--shadow-lg);
+      text-align: left;
+    }
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    input[type="range"] {
+      flex: 1;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    .num-input {
+      width: 72px;
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      color: var(--text);
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .num-input:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .select-input {
+      width: 100%;
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text);
+      font-size: var(--text-sm);
+      cursor: pointer;
+    }
+    .select-input:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .tier-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+      margin-top: var(--space-2);
+      padding-top: var(--space-3);
+      border-top: 1px solid var(--border);
+    }
+    .tier-meta-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .tier-meta-label {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .tier-meta-row .num-input { width: 56px; }
+    .tier-meta-row .select-input { font-size: var(--text-xs); }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      cursor: pointer;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text);
+      user-select: none;
+    }
+    .checkbox-label input[type="checkbox"] {
+      width: 16px; height: 16px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    .disabled-group { opacity: 0.4; pointer-events: none; }
+
+    /* ─── Full-width text input ─────────────────────────────────────── */
+    .text-input {
+      width: 100%;
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      color: var(--text);
+      font-size: var(--text-base);
+      font-weight: 500;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .text-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+    }
+
+    /* ─── Preset bar ───────────────────────────────────────────────── */
+    .preset-bar {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-5);
+    }
+    .preset-bar-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      align-self: center;
+      margin-right: var(--space-2);
+      white-space: nowrap;
+    }
+    .toggle-btn {
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-full, 9999px);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      border: 1px solid var(--border-2);
+      background: var(--surface);
+      color: var(--text-muted);
+      transition: all var(--transition);
+    }
+    .toggle-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .toggle-btn:hover:not(.active) { background: var(--surface-2); color: var(--text); }
+
+    /* ─── Architecture cards ───────────────────────────────────────── */
+    .tier-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: var(--space-4);
+    }
+    .tier-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid;
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      box-shadow: var(--shadow-sm);
+      transition: opacity var(--transition), filter var(--transition);
+    }
+    .tier-card.hot    { border-top-color: var(--c-hot); }
+    .tier-card.warm   { border-top-color: var(--c-warm); }
+    .tier-card.cold   { border-top-color: var(--c-cold); }
+    .tier-card.frozen { border-top-color: var(--c-frozen); }
+    .tier-card.kibana { border-top-color: var(--c-kibana); }
+    .tier-card.dim    { opacity: 0.38; filter: grayscale(80%); }
+    .tier-card-name {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+    .tier-card-ram {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--text);
+      font-family: var(--font-mono);
+    }
+    .tier-card-store {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .tier-card-per {
+      font-size: var(--text-xs);
+      color: var(--text-faint);
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2);
+      line-height: 1.5;
+    }
+    .tier-card-badge {
+      display: inline-block;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 2px var(--space-3);
+      align-self: flex-start;
+    }
+
+    /* ─── Infra cards ──────────────────────────────────────────────── */
+    .infra-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--space-4);
+    }
+    .infra-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--c-infra);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      box-shadow: var(--shadow-sm);
+      transition: opacity var(--transition), filter var(--transition);
+    }
+    .infra-card.master-card { border-top-color: #6366f1; }
+    .infra-card.coord-card  { border-top-color: #0ea5e9; }
+    .infra-card.ml-card     { border-top-color: #ec4899; }
+    .infra-card.ent-card    { border-top-color: #14b8a6; }
+    .infra-card.off         { opacity: 0.38; filter: grayscale(80%); }
+    .infra-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-3);
+    }
+    .infra-card-title {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--text);
+    }
+    .infra-card-total {
+      font-size: var(--text-base);
+      font-weight: 700;
+      color: var(--text);
+      font-family: var(--font-mono);
+      margin-bottom: var(--space-3);
+    }
+    .infra-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2);
+    }
+    .infra-field label {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: var(--space-1);
+    }
+    .infra-field .num-input { width: 100%; text-align: left; }
+    .master-status {
+      margin-top: var(--space-3);
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-xs);
+      line-height: 1.5;
+    }
+    .master-status.ok   { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .master-status.warn { background: #fefce8; border: 1px solid #fde68a; color: #92400e; }
+    .master-status.bad  { background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239; }
+    [data-theme="dark"] .master-status.ok   { background: #14281e; border-color: #166534; color: #6ee7b7; }
+    [data-theme="dark"] .master-status.warn { background: #2d2008; border-color: #92400e; color: #fde68a; }
+    [data-theme="dark"] .master-status.bad  { background: #2d0f14; border-color: #9f1239; color: #fca5a5; }
+    .master-status strong { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+    .master-status ul { margin: 2px 0 0 14px; padding: 0; }
+    .locked-input { background: var(--surface-3) !important; color: var(--text-muted) !important; cursor: not-allowed; }
+
+    /* ─── Advanced grid ────────────────────────────────────────────── */
+    .advanced-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+      overflow: visible;
+    }
+    .adv-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+    .adv-group-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-faint);
+      padding-bottom: var(--space-2);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: var(--space-1);
+    }
+    .adv-group-fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+      gap: var(--space-4);
+      overflow: visible;
+    }
+    .rollover-hint {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: var(--text-xs);
+      color: var(--accent);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.6rem;
+      line-height: 1.6;
+    }
+    .adv-field label {
+      display: block;
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: var(--space-2);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .adv-field .num-input { width: 100%; text-align: left; }
+    .watermark-row { display: flex; align-items: center; gap: var(--space-2); }
+    .watermark-row input[type="checkbox"] { accent-color: var(--primary); }
+    .watermark-row .num-input { flex: 1; }
+    .highlight-pulse {
+      animation: pulse-yellow 0.5s ease;
+    }
+    @keyframes pulse-yellow {
+      0%, 100% { background: var(--surface-2); }
+      50% { background: #fef9c3; border-color: #facc15; }
+    }
+    [data-theme="dark"] @keyframes pulse-yellow {
+      0%, 100% { background: var(--surface-2); }
+      50% { background: #3d3200; border-color: #713f12; }
+    }
+
+    /* ─── Shard summary ────────────────────────────────────────────── */
+    .shard-info {
+      background: var(--primary-hl);
+      border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+      border-left: 4px solid var(--primary);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      color: var(--primary);
+      margin-bottom: var(--space-4);
+      line-height: 1.7;
+    }
+    .status-ok   { color: var(--c-ok);   font-weight: 700; }
+    .status-warn { color: var(--c-warn); font-weight: 700; }
+    .status-bad  { color: var(--c-bad);  font-weight: 700; }
+
+    /* ─── Summary tables ───────────────────────────────────────────── */
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--text-sm);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .summary-table th {
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      padding: var(--space-3) var(--space-4);
+      text-align: left;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .summary-table td {
+      border-bottom: 1px solid var(--border);
+      padding: var(--space-3) var(--space-4);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+    }
+    .summary-table td:first-child { font-family: var(--font-body); font-weight: 600; }
+    .summary-table .disabled-row td { color: var(--text-faint); font-style: italic; }
+    .summary-table .total-row td {
+      font-weight: 700;
+      background: var(--surface-2);
+      border-top: 2px solid var(--border-2);
+    }
+    .summary-table tbody tr:last-child td { border-bottom: none; }
+
+    /* ─── Warnings ─────────────────────────────────────────────────── */
+    .warning-box {
+      background: #fefce8;
+      border: 1px solid #fde68a;
+      border-left: 4px solid #d97706;
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      color: #92400e;
+      margin-bottom: var(--space-3);
+    }
+    [data-theme="dark"] .warning-box {
+      background: #2d2008;
+      border-color: #92400e;
+      color: #fde68a;
+    }
+
+    /* ─── Section divider ──────────────────────────────────────────── */
+    .section-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: var(--space-2) 0 var(--space-3);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── Shard health banner ────────────────────────────────────────── */
+    .cluster-health-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      border-radius: var(--radius-md);
+      border: 1px solid;
+      font-size: var(--text-sm);
+      line-height: 1.6;
+    }
+    .cluster-health-banner.ok   { background: #f0fdf4; border-color: #bbf7d0; color: #14532d; }
+    .cluster-health-banner.warn { background: #fefce8; border-color: #fde68a; color: #78350f; }
+    .cluster-health-banner.bad  { background: #fff1f2; border-color: #fecdd3; color: #881337; }
+    [data-theme="dark"] .cluster-health-banner.ok   { background: #14281e; border-color: #166534; color: #86efac; }
+    [data-theme="dark"] .cluster-health-banner.warn { background: #2d2008; border-color: #92400e; color: #fde68a; }
+    [data-theme="dark"] .cluster-health-banner.bad  { background: #2d0f14; border-color: #9f1239; color: #fca5a5; }
+    .cluster-health-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+    .cluster-health-body strong { display: block; font-weight: 700; margin-bottom: var(--space-1); }
+
+    /* ─── Utilization bar in shard table ──────────────────────────── */
+    .util-bar-wrap {
+      width: 80px;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .util-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    .util-bar-fill.ok   { background: var(--c-ok); }
+    .util-bar-fill.warn { background: var(--c-warn); }
+    .util-bar-fill.bad  { background: var(--c-bad); }
+    .util-pct { font-size: var(--text-xs); color: var(--text-muted); margin-left: var(--space-2); font-family: var(--font-mono); }
+
+    /* ─── Recommendation cards ─────────────────────────────────────── */
+    .reco-list { display: flex; flex-direction: column; gap: var(--space-3); }
+    .reco-item {
+      display: flex;
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      border-radius: var(--radius-md);
+      border: 1px solid;
+      font-size: var(--text-sm);
+      line-height: 1.6;
+    }
+    .reco-item.warn { background: #fefce8; border-color: #fde68a; color: #78350f; }
+    .reco-item.bad  { background: #fff1f2; border-color: #fecdd3; color: #881337; }
+    [data-theme="dark"] .reco-item.warn { background: #2d2008; border-color: #92400e; color: #fde68a; }
+    [data-theme="dark"] .reco-item.bad  { background: #2d0f14; border-color: #9f1239; color: #fca5a5; }
+    .reco-icon { font-size: 1rem; flex-shrink: 0; margin-top: 2px; }
+    .reco-title { font-weight: 700; margin-bottom: var(--space-1); }
+    .reco-fix {
+      margin-top: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      background: rgba(0,0,0,0.05);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-xs);
+      font-family: var(--font-mono);
+      line-height: 1.7;
+    }
+    [data-theme="dark"] .reco-fix { background: rgba(255,255,255,0.07); }
+
+    /* ─── Reference cards ──────────────────────────────────────────── */
+    .ref-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+    }
+    .ref-card-title {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--primary);
+      margin-bottom: var(--space-2);
+    }
+    .ref-card-body { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.7; }
+    .ref-card-body strong { color: var(--text); }
+
+    /* ─── Export panel ─────────────────────────────────────────────── */
+    .export-row {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      margin-top: var(--space-4);
+    }
+
+    /* ─── Dark mode toggle ─────────────────────────────────────────── */
+    .theme-toggle {
+      width: 36px; height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border-2);
+      background: var(--surface);
+      color: var(--text-muted);
+    }
+    .theme-toggle:hover { background: var(--surface-2); color: var(--text); }
+
+    /* ─── Responsive ───────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .main-content { padding: var(--space-4); }
+      .dashboard { padding: var(--space-4); border-radius: var(--radius-lg); }
+      .section-body { padding: var(--space-4); }
+      .header-inner .btn span { display: none; }
+      .controls-grid { grid-template-columns: 1fr; }
+      .advanced-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media print {
+      .app-header, .section-header, .preset-bar, .export-row, .theme-toggle { display: none !important; }
+      .section-body.hidden { display: block !important; }
+      .section-card { box-shadow: none; border: 1px solid #e2e8f0; }
+      body { background: white; }
+      .dashboard { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── App Header ─────────────────────────────────────────────────── -->
+<header class="app-header">
+  <div class="header-inner">
+    <div class="logo-group">
+      <svg class="logo-svg" width="36" height="36" viewBox="0 0 36 36" fill="none" aria-label="ECE Sizing logo">
+        <rect width="36" height="36" rx="8" fill="#0369a1"/>
+        <rect x="6" y="18" width="6" height="12" rx="2" fill="white" opacity="1"/>
+        <rect x="15" y="12" width="6" height="18" rx="2" fill="white" opacity="0.85"/>
+        <rect x="24" y="6" width="6" height="24" rx="2" fill="white" opacity="0.65"/>
+      </svg>
+      <div class="logo-text">
+        <h1>ECE Sizing Calculator</h1>
+        <span>Elastic Cloud Enterprise Deployment Planner <span class="version-badge">v1.0.9</span></span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost" onclick="shareUrl()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span>Copy Link</span>
+      </button>
+      <button class="btn btn-ghost" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        <span>Print</span>
+      </button>
+      <button class="btn btn-danger" onclick="resetToDefaults()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <span>Reset</span>
+      </button>
+      <button class="theme-toggle" data-theme-toggle aria-label="Toggle dark mode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ─── Main ───────────────────────────────────────────────────────── -->
+<main class="main-content">
+
+  <!-- Dashboard -->
+  <div class="dashboard">
+    <div class="dashboard-top">
+      <div>
+        <div class="client-label">Deployment Sizing For</div>
+        <div class="client-name-display" id="clientDisplay">New Client</div>
+      </div>
+      <div class="retention-pill" id="retentionPill">Total retention: <strong>—</strong></div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Total RAM
+        </div>
+        <div class="kpi-val" id="totalRam">—</div>
+        <div class="kpi-sub" id="totalRamSub">across all node roles</div>
+        <div class="kpi-sub" id="allocatorOverheadSub" style="margin-top:2px;font-size:var(--text-xs);color:var(--c-warn)"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Local Storage
+        </div>
+        <div class="kpi-val" id="totalStorage">—</div>
+        <div class="kpi-sub" id="totalStorageSub">hot + warm + cold + frozen cache</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+          Object Store
+        </div>
+        <div class="kpi-val dim" id="totalObject">—</div>
+        <div class="kpi-sub" id="totalObjectSub">cold + frozen + snapshots</div>
+      </div>
+    </div>
+
+    <div class="bar-section">
+      <div class="bar-label">
+        <span>RAM Distribution</span>
+        <span style="color:var(--dashboard-muted); font-weight:400;">Hover segments for detail</span>
+      </div>
+      <div class="stacked-bar" id="ramBar">
+        <div class="seg" id="ramHot"    title="" style="background:var(--c-hot);    width:0"></div>
+        <div class="seg" id="ramWarm"   title="" style="background:var(--c-warm);   width:0"></div>
+        <div class="seg" id="ramCold"   title="" style="background:var(--c-cold);   width:0"></div>
+        <div class="seg" id="ramFrozen" title="" style="background:var(--c-frozen); width:0"></div>
+        <div class="seg" id="ramKib"    title="" style="background:var(--c-kibana); width:0"></div>
+        <div class="seg" id="ramInfra"  title="" style="background:var(--c-infra);  width:0"></div>
+      </div>
+    </div>
+    <div class="bar-section" style="margin-top:var(--space-3)">
+      <div class="bar-label"><span>Local Storage Distribution</span></div>
+      <div class="stacked-bar" id="storeBar">
+        <div class="seg" id="storeHot"    title="" style="background:var(--c-hot);    width:0"></div>
+        <div class="seg" id="storeWarm"   title="" style="background:var(--c-warm);   width:0"></div>
+        <div class="seg" id="storeCold"   title="" style="background:var(--c-cold);   width:0"></div>
+        <div class="seg" id="storeFrozen" title="" style="background:var(--c-frozen); width:0"></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-hot)"></div>Hot</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-warm)"></div>Warm</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-cold)"></div>Cold</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-frozen)"></div>Frozen</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-kibana)"></div>Kibana</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--c-infra)"></div>Infra</div>
+    </div>
+  </div>
+
+  <!-- ── Section 1: Client & Presets ──────────────────────────────── -->
+  <div class="section-card">
+    <div class="section-header" onclick="toggleSection('s-client')">
+      <div class="section-title-group">
+        <div class="section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Client &amp; Presets</div>
+          <div class="section-subtitle">Client name, use-case, and architecture templates</div>
+        </div>
+      </div>
+      <svg class="chevron open" id="chev-s-client" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="section-body" id="s-client">
+
+      <div class="input-group" style="max-width:420px; margin-bottom:var(--space-6)">
+        <label class="input-label" for="clientName">Client / Deployment Name</label>
+        <input type="text" id="clientName" class="text-input" placeholder="e.g. Acme Corp — Production SIEM" oninput="updateClientDisplay()">
+      </div>
+
+      <div class="section-label">Use-Case Preset</div>
+      <div class="preset-bar" style="margin-bottom:var(--space-5)">
+        <button class="toggle-btn active" id="uc-siem"   onclick="applyUseCase('siem')">SIEM / Logs</button>
+        <button class="toggle-btn"        id="uc-apm"    onclick="applyUseCase('apm')">APM / Observability</button>
+        <button class="toggle-btn"        id="uc-security" onclick="applyUseCase('security')">Security Analytics</button>
+        <button class="toggle-btn"        id="uc-search" onclick="applyUseCase('search')">Enterprise Search</button>
+        <button class="toggle-btn"        id="uc-custom" onclick="applyUseCase('custom')">Custom</button>
+      </div>
+
+      <div class="section-label">Architecture Preset</div>
+      <div class="preset-bar">
+        <button class="toggle-btn active" id="arch-elastic"    onclick="applyArchPreset('elastic')">Elastic Best Practices</button>
+        <button class="toggle-btn"        id="arch-expedient"  onclick="applyArchPreset('expedient')">Expedient (Dense)</button>
+        <button class="toggle-btn"        id="arch-minimal"    onclick="applyArchPreset('minimal')">Minimal / Dev</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Section 2: Cluster Inputs ────────────────────────────────── -->
+  <div class="section-card">
+    <div class="section-header" onclick="toggleSection('s-cluster')">
+      <div class="section-title-group">
+        <div class="section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Data Tiers &amp; Retention</div>
+          <div class="section-subtitle">Ingest rate and ILM tier configuration</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--space-3)">
+        <span class="section-badge" id="badge-ingest">100 GB/day</span>
+        <svg class="chevron open" id="chev-s-cluster" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+    <div class="section-body" id="s-cluster">
+
+      <div class="controls-grid">
+
+        <!-- Ingest -->
+        <div class="input-group">
+          <div class="input-label">
+            Daily Ingest (GB/day)
+            <span class="tip" data-tip="Raw uncompressed ingest before overhead multiplier and replication. Elastic typically achieves 1.5–2× compression on log data.">?</span>
+          </div>
+          <div class="input-row">
+            <input type="range" id="ingestSlider" value="100" min="1" max="5000" step="1" oninput="sync('ingest')">
+            <input type="number" id="ingestNum" class="num-input" value="100" min="1" oninput="sync('ingest')">
+          </div>
+        </div>
+
+        <!-- Hot -->
+        <div class="input-group">
+          <div class="input-label">Hot Retention (Days)</div>
+          <div class="input-row">
+            <input type="range" id="hotSlider" value="7" min="0" max="90" oninput="sync('hot')">
+            <input type="number" id="hotNum" class="num-input" value="7" min="0" oninput="sync('hot')">
+          </div>
+          <div class="tier-meta">
+            <div class="tier-meta-row">
+              <span class="tier-meta-label">Zones<span class="tip" data-tip="Availability zones for hot tier. 2 zones = HA minimum.">?</span>:</span>
+              <select id="hotAzs" class="select-input" onchange="calculate()">
+                <option value="1">1 Zone</option>
+                <option value="2" selected>2 Zones (HA)</option>
+                <option value="3">3 Zones</option>
+              </select>
+            </div>
+            <div class="tier-meta-row">
+              <span class="tier-meta-label">Replicas<span class="tip" data-tip="Lucene replicas per primary. 1 replica = 1 copy. Must be less than zone count.">?</span>:</span>
+              <input type="number" id="hotReplicas" class="num-input" value="1" min="0" max="2" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Warm -->
+        <div class="input-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="enableWarm" checked onchange="calculate()">
+            Warm Retention (Days)
+          </label>
+          <div class="input-row">
+            <input type="range" id="warmSlider" value="30" min="0" max="365" oninput="sync('warm')">
+            <input type="number" id="warmNum" class="num-input" value="30" min="0" oninput="sync('warm')">
+          </div>
+          <div class="tier-meta">
+            <div class="tier-meta-row">
+              <span class="tier-meta-label">Zones:</span>
+              <select id="warmAzs" class="select-input" onchange="calculate()">
+                <option value="1">1 Zone</option>
+                <option value="2" selected>2 Zones (HA)</option>
+                <option value="3">3 Zones</option>
+              </select>
+            </div>
+            <div class="tier-meta-row">
+              <span class="tier-meta-label">Replicas:</span>
+              <input type="number" id="warmReplicas" class="num-input" value="1" min="0" max="2" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Cold -->
+        <div class="input-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="enableCold" checked onchange="calculate()">
+            Cold Retention (Days)
+          </label>
+          <div class="input-row">
+            <input type="range" id="coldSlider" value="90" min="0" max="1000" oninput="sync('cold')">
+            <input type="number" id="coldNum" class="num-input" value="90" min="0" oninput="sync('cold')">
+          </div>
+          <div class="tier-meta">
+            <div class="tier-meta-row">
+              <span class="tier-meta-label">Zones<span class="tip" data-tip="Cold tier typically uses 1 zone — object store provides durability.">?</span>:</span>
+              <select id="coldAzs" class="select-input" onchange="calculate()">
+                <option value="1" selected>1 Zone</option>
+                <option value="2">2 Zones</option>
+                <option value="3">3 Zones</option>
+              </select>
+            </div>
+            <div class="tier-meta-row">
+              <span class="tier-meta-label">Replicas<span class="tip" data-tip="Cold default = 0 replicas — object store provides resilience.">?</span>:</span>
+              <input type="number" id="coldReplicas" class="num-input" value="0" min="0" max="2" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Frozen -->
+        <div class="input-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="enableFrozen" checked onchange="calculate()">
+            Frozen Retention (Days)
+          </label>
+          <div class="input-row">
+            <input type="range" id="frozenSlider" value="365" min="0" max="3650" oninput="sync('frozen')">
+            <input type="number" id="frozenNum" class="num-input" value="365" min="0" oninput="sync('frozen')">
+          </div>
+          <div class="tier-meta">
+            <div class="tier-meta-row">
+              <span class="tier-meta-label">Zones<span class="tip" data-tip="Frozen nodes hold only a local cache. Durability comes from object store.">?</span>:</span>
+              <select id="frozenAzs" class="select-input" onchange="calculate()">
+                <option value="1" selected>1 Zone</option>
+                <option value="2">2 Zones</option>
+                <option value="3">3 Zones</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kibana -->
+        <div class="input-group">
+          <div class="input-label">Kibana RAM / Node</div>
+          <select id="kibanaRam" class="select-input" onchange="calculate()">
+            <option value="1">1 GB</option>
+            <option value="2">2 GB</option>
+            <option value="4" selected>4 GB</option>
+            <option value="8">8 GB</option>
+            <option value="16">16 GB</option>
+            <option value="32">32 GB</option>
+          </select>
+          <div class="tier-meta">
+            <div class="tier-meta-row">
+              <span class="tier-meta-label">Nodes:</span>
+              <select id="kibAzs" class="select-input" onchange="calculate()">
+                <option value="1">1 Node</option>
+                <option value="2" selected>2 Nodes (HA)</option>
+                <option value="3">3 Nodes</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Infra Nodes ────────────────────────────────────── -->
+  <div class="section-card">
+    <div class="section-header" onclick="toggleSection('s-infra')">
+      <div class="section-title-group">
+        <div class="section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Infrastructure Nodes</div>
+          <div class="section-subtitle">Master, coordinating, ML, and Enterprise Search</div>
+        </div>
+      </div>
+      <svg class="chevron open" id="chev-s-infra" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="section-body" id="s-infra">
+      <p style="font-size:var(--text-xs); color:var(--text-muted); margin-bottom:var(--space-4);">Non-data node roles. Master auto-derives from cluster rules. Others default off — enable only what you deploy.</p>
+      <div class="infra-grid">
+
+        <!-- Master -->
+        <div class="infra-card master-card" id="card-master">
+          <div class="infra-card-header">
+            <span class="infra-card-title">Master Nodes</span>
+            <label class="checkbox-label" style="font-size:var(--text-xs)">
+              <input type="checkbox" id="masterAuto" checked onchange="calculate()"> Auto
+            </label>
+          </div>
+          <label class="checkbox-label" style="margin-bottom:var(--space-2)">
+            <input type="checkbox" id="enableMaster" onchange="calculate()"> Dedicated Masters
+          </label>
+          <div class="infra-card-total" id="masterTotalRam">0 GB RAM</div>
+          <div class="infra-controls">
+            <div class="infra-field">
+              <label>RAM/Node (GB)</label>
+              <input type="number" id="masterRam" class="num-input" value="4" min="0" oninput="calculate()">
+            </div>
+            <div class="infra-field">
+              <label>Nodes</label>
+              <input type="number" id="masterNodes" class="num-input" value="3" min="0" oninput="calculate()">
+            </div>
+          </div>
+          <div class="master-status" id="masterStatus"></div>
+        </div>
+
+        <!-- Coord -->
+        <div class="infra-card coord-card" id="card-coord">
+          <div class="infra-card-header">
+            <span class="infra-card-title">Coordinating <span class="tip" data-tip="Route queries and aggregate results. Typical: 1 coord per 5 data nodes once cluster > 6 nodes; min 2 for HA.">?</span></span>
+          </div>
+          <label class="checkbox-label" style="margin-bottom:var(--space-2)">
+            <input type="checkbox" id="enableCoord" onchange="calculate()"> Enable
+          </label>
+          <div class="infra-card-total" id="coordTotalRam">0 GB RAM</div>
+          <div class="infra-controls">
+            <div class="infra-field">
+              <label>RAM/Node (GB)</label>
+              <input type="number" id="coordRam" class="num-input" value="8" min="0" oninput="calculate()">
+            </div>
+            <div class="infra-field">
+              <label>Nodes</label>
+              <input type="number" id="coordNodes" class="num-input" value="2" min="0" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+        <!-- ML -->
+        <div class="infra-card ml-card" id="card-ml">
+          <div class="infra-card-header">
+            <span class="infra-card-title">ML Nodes <span class="tip" data-tip="Scale with concurrent jobs. Min 4 GB RAM + ~1 GB per anomaly-detection job. NLP/inference adds model size.">?</span></span>
+          </div>
+          <label class="checkbox-label" style="margin-bottom:var(--space-2)">
+            <input type="checkbox" id="enableMl" onchange="calculate()"> Enable
+          </label>
+          <div class="infra-card-total" id="mlTotalRam">0 GB RAM</div>
+          <div class="infra-controls">
+            <div class="infra-field">
+              <label>RAM/Node (GB)</label>
+              <input type="number" id="mlRam" class="num-input" value="16" min="0" oninput="calculate()">
+            </div>
+            <div class="infra-field">
+              <label>Nodes</label>
+              <input type="number" id="mlNodes" class="num-input" value="1" min="0" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Ent Search -->
+        <div class="infra-card ent-card" id="card-ent">
+          <div class="infra-card-header">
+            <span class="infra-card-title">Enterprise Search</span>
+          </div>
+          <label class="checkbox-label" style="margin-bottom:var(--space-2)">
+            <input type="checkbox" id="enableEnt" onchange="calculate()"> Enable
+          </label>
+          <div class="infra-card-total" id="entTotalRam">0 GB RAM</div>
+          <div class="infra-controls">
+            <div class="infra-field">
+              <label>RAM/Node (GB)</label>
+              <input type="number" id="entRam" class="num-input" value="4" min="0" oninput="calculate()">
+            </div>
+            <div class="infra-field">
+              <label>Nodes</label>
+              <input type="number" id="entNodes" class="num-input" value="2" min="0" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 4: Architecture Breakdown ────────────────────────── -->
+  <div class="section-card">
+    <div class="section-header" onclick="toggleSection('s-arch')">
+      <div class="section-title-group">
+        <div class="section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Architecture Breakdown</div>
+          <div class="section-subtitle">Per-tier RAM, storage, and node sizing</div>
+        </div>
+      </div>
+      <svg class="chevron open" id="chev-s-arch" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="section-body" id="s-arch">
+      <div class="tier-cards">
+        <div class="tier-card hot" id="tc-hot">
+          <div class="tier-card-name">🔴 Hot</div>
+          <div class="tier-card-ram" id="tcHotRam">—</div>
+          <div class="tier-card-store" id="tcHotStore">—</div>
+          <div class="tier-card-per" id="tcHotPer">—</div>
+          <div class="tier-card-badge" id="tcHotBadge">2 Zones</div>
+        </div>
+        <div class="tier-card warm" id="tc-warm">
+          <div class="tier-card-name">🟡 Warm</div>
+          <div class="tier-card-ram" id="tcWarmRam">—</div>
+          <div class="tier-card-store" id="tcWarmStore">—</div>
+          <div class="tier-card-per" id="tcWarmPer">—</div>
+          <div class="tier-card-badge" id="tcWarmBadge">2 Zones</div>
+        </div>
+        <div class="tier-card cold" id="tc-cold">
+          <div class="tier-card-name">🔵 Cold</div>
+          <div class="tier-card-ram" id="tcColdRam">—</div>
+          <div class="tier-card-store" id="tcColdStore">—</div>
+          <div class="tier-card-per" id="tcColdPer">—</div>
+          <div class="tier-card-badge" id="tcColdBadge">1 Zone</div>
+        </div>
+        <div class="tier-card frozen" id="tc-frozen">
+          <div class="tier-card-name">🧊 Frozen</div>
+          <div class="tier-card-ram" id="tcFrozenRam">—</div>
+          <div class="tier-card-store" id="tcFrozenStore">—</div>
+          <div class="tier-card-per" id="tcFrozenPer">—</div>
+          <div class="tier-card-badge" id="tcFrozenBadge">1 Zone</div>
+        </div>
+        <div class="tier-card kibana" id="tc-kibana">
+          <div class="tier-card-name">🟣 Kibana</div>
+          <div class="tier-card-ram" id="tcKibRam">—</div>
+          <div class="tier-card-store">Stateless UI</div>
+          <div class="tier-card-per" id="tcKibPer">—</div>
+          <div class="tier-card-badge" id="tcKibBadge">2 Nodes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 5: Advanced Ratios ───────────────────────────────── -->
+  <div class="section-card">
+    <div class="section-header" onclick="toggleSection('s-advanced')">
+      <div class="section-title-group">
+        <div class="section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M16.24 7.76a6 6 0 0 1 0 8.49M6.34 6.34a8 8 0 0 0 0 11.32M1.5 15.5A10 10 0 0 0 3.93 19.07"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Advanced Ratios &amp; Tuning</div>
+          <div class="section-subtitle">RAM:storage ratios, per-tier overhead, watermark, shard &amp; snapshot sizing</div>
+        </div>
+      </div>
+      <svg class="chevron" id="chev-s-advanced" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="section-body hidden" id="s-advanced">
+      <div class="advanced-grid">
+
+        <!-- ── Group 1: RAM:Storage Ratios ── -->
+        <div class="adv-group">
+          <div class="adv-group-label">RAM : Storage Ratios</div>
+          <div class="adv-group-fields">
+            <div class="adv-field">
+              <label>Hot (1:X) <span class="tip" data-tip="1 GB RAM per X GB indexed data. Elastic default 1:30. High-volume logging up to 1:96.">?</span></label>
+              <input type="number" id="hotRatio" class="num-input" value="30" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Warm (1:X) <span class="tip" data-tip="Elastic default 1:160. Warm nodes serve fewer queries than hot.">?</span></label>
+              <input type="number" id="warmRatio" class="num-input" value="160" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Cold (1:X) <span class="tip" data-tip="Cold uses the same hardware profile as warm (1:160). The apparent storage savings come from using searchable snapshots — no replica copies are maintained, cutting physical storage roughly in half compared to hot.">?</span></label>
+              <input type="number" id="coldRatio" class="num-input" value="160" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Frozen (1:X) <span class="tip" data-tip="Elastic published frozen tier ratio: 1:1500. Frozen nodes hold only metadata + a small local cache; the bulk of data remains in object storage. Ratio reflects very low per-node RAM relative to managed dataset.">?</span></label>
+              <input type="number" id="frozenRatio" class="num-input" value="1500" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Group 2: Overhead & Watermark ── -->
+        <div class="adv-group">
+          <div class="adv-group-label">Overhead &amp; Watermark</div>
+          <div class="adv-group-fields">
+            <div class="adv-field">
+              <label>Hot Overhead Multiplier <span class="tip" data-tip="Lucene segments + metadata multiplier for the hot tier. 1.5× is a conservative planning heuristic used in Elastic sizing workshops — not an officially published constant. Actual overhead varies with field mappings, doc size, and merge state. Recent log data tends higher (1.4–1.7×).">?</span></label>
+              <input type="number" id="hotOverhead" class="num-input" value="1.5" step="0.05" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Warm Overhead Multiplier <span class="tip" data-tip="Warm data is typically force-merged, reducing overhead. 1.25× is a planning heuristic; actual overhead after force-merge is typically 1.15–1.30× for compressed log data. Adjust based on your observed on-disk size vs raw ingest.">?</span></label>
+              <input type="number" id="warmOverhead" class="num-input" value="1.25" step="0.05" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Cold/Frozen Overhead <span class="tip" data-tip="Cold and frozen snapshots are fully merged. Typically 1.0–1.15× for compressed data at rest.">?</span></label>
+              <input type="number" id="coldOverhead" class="num-input" value="1.1" step="0.05" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Disk Watermark Headroom <span class="tip" data-tip="Elasticsearch enforces disk watermarks (default 85%/90%). 15% headroom is a safe planning buffer.">?</span></label>
+              <div class="watermark-row">
+                <input type="checkbox" id="enableWatermark" checked onchange="calculate()">
+                <input type="number" id="watermarkPct" class="num-input" value="15" min="0" max="50" oninput="calculate()">
+                <span style="font-size:var(--text-xs);color:var(--text-muted)">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Group 3: Shard & Index Sizing ── -->
+        <div class="adv-group">
+          <div class="adv-group-label">Shard &amp; Index Sizing</div>
+          <div class="adv-group-fields">
+            <div class="adv-field">
+              <label>Target Shard Size (GB) <span class="tip" data-tip="Elastic recommends 10–50 GB per shard. Used to calculate primary shard count.">?</span></label>
+              <input type="number" id="targetShardSize" class="num-input" value="30" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>System Indices Shards <span class="tip" data-tip="Baseline shard count for built-in system indices (.kibana, .security, etc.). 250 is typical.">?</span></label>
+              <input type="number" id="systemShards" class="num-input" value="250" min="0" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Indices/Day <span class="tip" data-tip="Distinct primary index groups per day. 1 = one daily time-series index. Higher for multi-datastream deployments.">?</span></label>
+              <input type="number" id="indicesPerDay" class="num-input" value="1" min="1" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Group 3b: ILM Rollover ── -->
+        <div class="adv-group">
+          <div class="adv-group-label">ILM Rollover</div>
+          <div class="adv-group-fields">
+            <div class="adv-field" style="grid-column:1/-1">
+              <label>Rollover Condition <span class="tip" data-tip="Age-based: ILM rolls the index once per day (or configured max_age). Hot storage = ingest × hot retention days. Size-based: ILM rolls when an index reaches a target size. Hot storage is derived from active rollover indices × max index size × replicas × overhead.">?</span></label>
+              <select id="ilmRolloverMode" class="num-input" onchange="onRolloverModeChange()" style="height:2rem;font-size:var(--text-sm)">
+                <option value="age" selected>Age-based (max_age / daily rollover)</option>
+                <option value="size">Size-based (max_primary_shard_size)</option>
+              </select>
+            </div>
+            <div class="adv-field" id="ilmMaxSizeField" style="display:none">
+              <label>Max Index Size (GB) <span class="tip" data-tip="The max_primary_shard_size ILM threshold. When an index reaches this size ECE rolls it over. Elastic recommends 10–50 GB. The calculator uses this to derive how many active rollover indices exist on hot at any time.">?</span></label>
+              <input type="number" id="ilmMaxIndexSizeGb" class="num-input" value="50" min="1" step="1" oninput="calculate()">
+            </div>
+            <div class="adv-field" id="ilmMaxDocsField" style="display:none">
+              <label>Max Docs / Index (M) <span class="tip" data-tip="Optional: ILM also supports max_docs rollover. Enter the doc limit in millions. Leave 0 to ignore. When both size and doc limits are set the calculator notes the doc limit but does not reduce the active index count automatically — verify your ingest doc rate separately.">?</span></label>
+              <input type="number" id="ilmMaxDocsMillion" class="num-input" value="0" min="0" step="1" oninput="calculate()">
+            </div>
+            <div class="adv-field" id="ilmHintField" style="display:none;grid-column:1/-1">
+              <label style="color:var(--text-muted);font-size:var(--text-xs)">Derived active hot indices</label>
+              <div id="ilmRolloverHint" class="rollover-hint"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Group 4: Snapshots ── -->
+        <div class="adv-group">
+          <div class="adv-group-label">Snapshots</div>
+          <div class="adv-group-fields">
+            <div class="adv-field">
+              <label>Snapshot Retention (Days) <span class="tip" data-tip="Days of nightly snapshot history in object store for hot+warm. The calculator uses a conservative upper bound (daily delta × retention days). In practice, Elasticsearch snapshots are incremental and deduplicate unchanged segments, so actual object storage is typically 30–60% lower than this estimate.">?</span></label>
+              <input type="number" id="snapshotRetentionDays" class="num-input" value="7" min="0" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Index Type <span class="tip" data-tip="Rolling (time-series): each day adds a new index — snapshot delta ≈ one day's ingest. Non-rolling (search/app): indices grow in place — snapshots only capture changed segments, so the formula adds an initial full-snapshot line item.">?</span></label>
+              <select id="snapIndexType" class="num-input" onchange="calculate()" style="height:2rem;font-size:var(--text-sm)">
+                <option value="rolling" selected>Rolling (time-series logs/metrics)</option>
+                <option value="nonrolling">Non-rolling (search / app data)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Group 5: Infrastructure ── -->
+        <div class="adv-group">
+          <div class="adv-group-label">Infrastructure</div>
+          <div class="adv-group-fields">
+            <div class="adv-field">
+              <label>Hot vCPU / Node <span class="tip" data-tip="Elastic guidance: ~1 GB/hour ingest per 4 vCPUs. Used to check whether hot nodes are CPU-bound. ECE instance sizes have fixed CPU:RAM ratios — enter the expected vCPU count per hot node here.">?</span></label>
+              <input type="number" id="hotVcpu" class="num-input" value="8" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>ECE Allocator Count <span class="tip" data-tip="Number of allocator hosts. Each allocator uses ~6 GB for ECE control plane (Director, Coordinator, ZK, proxy). This overhead is subtracted from each host's usable tenant RAM.">?</span></label>
+              <input type="number" id="allocatorCount" class="num-input" value="14" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Allocator RAM / Host (GB) <span class="tip" data-tip="Physical RAM per allocator host. ECE uses ~6 GB per host for control plane; remaining RAM is available for tenant workloads.">?</span></label>
+              <input type="number" id="allocatorRam" class="num-input" value="1412" min="16" step="16" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Hot Nodes/Zone <span class="tip" data-tip="Number of hot data nodes per availability zone. Total hot nodes = Nodes/Zone × AZ count. More nodes spread shards more evenly and raise the per-tier shard ceiling. Minimum 1.">?</span></label>
+              <input type="number" id="hotNpz" class="num-input" value="1" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Warm Nodes/Zone <span class="tip" data-tip="Number of warm data nodes per availability zone. Warm nodes serve force-merged, read-only indices. Increasing this reduces shards-per-node and can extend warm retention without hitting density limits.">?</span></label>
+              <input type="number" id="warmNpz" class="num-input" value="1" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Cold Nodes/Zone <span class="tip" data-tip="Number of cold nodes per availability zone. Cold nodes serve fully-mounted searchable snapshots from object store. RAM requirement is low (1:1500 ratio) so fewer nodes are typical.">?</span></label>
+              <input type="number" id="coldNpz" class="num-input" value="1" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Frozen Nodes/Zone <span class="tip" data-tip="Number of frozen nodes per availability zone. Frozen nodes hold only metadata and a local cache — actual data is fetched on demand from object store. Total local cache = Nodes/Zone × AZs × Cache/Node.">?</span></label>
+              <input type="number" id="frozenNpz" class="num-input" value="1" min="1" oninput="calculate()">
+            </div>
+            <div class="adv-field">
+              <label>Frozen Cache/Node (GB) <span class="tip" data-tip="Local SSD cache per node for partially-mounted snapshots. Elastic guidance: 1–10% of remote dataset; 5% is the recommended starting point. Below 5% may cause cache thrashing. Increase toward 10%+ for workloads with high cache hit rate requirements.">?</span></label>
+              <input type="number" id="frozenCache" class="num-input" value="1000" min="0" step="100" oninput="calculate()">
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div id="frozenCacheHealth" style="display:none;margin-top:0.5rem"></div>
+      <div id="cpuHint" style="display:none;margin-top:0.5rem"></div>
+    </div>
+  </div>
+
+  <!-- ── Section 6: Shard Model ────────────────────────────────────── -->
+  <div class="section-card">
+    <div class="section-header" onclick="toggleSection('s-shards')">
+      <div class="section-title-group">
+        <div class="section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Shard Model</div>
+          <div class="section-subtitle">Shard counts, density ceilings, and health status</div>
+        </div>
+      </div>
+      <svg class="chevron open" id="chev-s-shards" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="section-body" id="s-shards">
+      <div class="shard-info" id="shardSummary"></div>
+
+      <!-- Cluster-level shard health banner -->
+      <div id="clusterShardHealth" style="margin-bottom:var(--space-4)"></div>
+
+      <div style="overflow-x:auto">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Shards/Index <span class="tip" data-tip="Primary shards per daily index = ceil(daily GB × overhead ÷ target shard size ÷ indices/day). Replica copies are added on top.">?</span></th>
+              <th>Total Shards <span class="tip" data-tip="Primaries × (1 + replicas) × retention days × indices/day. Hot tier adds system indices baseline.">?</span></th>
+              <th>Nodes/Zone</th>
+              <th>Node RAM <span class="tip" data-tip="Derived: tier RAM ÷ zones ÷ nodes/zone. Round UP to the next ECE instance size (data.default): 1, 2, 4, 8, 16, 32, 64 GB.">?</span></th>
+              <th>Heap GB <span class="tip" data-tip="JVM heap = min(node RAM ÷ 2, 31 GB). Elastic caps heap at 31 GB to stay below compressed-oops threshold.">?</span></th>
+              <th>Total Nodes</th>
+              <th>Shards/Node <span class="tip" data-tip="Hard limit per node: hot/warm = 1,000 shards/node (Elastic 8.3+ cluster.max_shards_per_node default); cold = 1,000 shards/node (searchable snapshots, no indexing); frozen = 3,000 shards/node (metadata + cache only).">?</span></th>
+              <th>Ceiling <span class="tip" data-tip="Max shards this tier can host. Hot/warm: 1,000/node; Cold: 1,000/node; Frozen: 3,000/node (Elastic 8.3+ per-node limit).">?</span></th>
+              <th>Utilization</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="shardBody"></tbody>
+          <tfoot id="shardFoot"></tfoot>
+        </table>
+      </div>
+
+      <div id="shardRecommendations" style="margin-top:var(--space-5)"></div>
+
+      <details style="margin-top:var(--space-4)">
+        <summary style="font-size:var(--text-xs);color:var(--text-muted);cursor:pointer;font-weight:600">Elastic Best-Practice Reference</summary>
+        <div style="margin-top:var(--space-3);display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--space-3)">
+          <div class="ref-card">
+            <div class="ref-card-title">Shard Size</div>
+            <div class="ref-card-body">Target <strong>10–50 GB per shard</strong>. The sweet spot is <strong>20–40 GB</strong>. Shards below 10 GB create excess JVM overhead; above 50 GB cause slow recoveries and merges.</div>
+          </div>
+          <div class="ref-card">
+            <div class="ref-card-title">Hot / Warm Density</div>
+            <div class="ref-card-body">Hard limit: <strong>1,000 shards per node</strong> on hot and warm tiers (Elasticsearch 8.3+ default for <code>cluster.max_shards_per_node</code>). The older 20 shards/GB-heap rule is deprecated.</div>
+          </div>
+          <div class="ref-card">
+            <div class="ref-card-title">Cold / Frozen Density</div>
+            <div class="ref-card-body">Cold: <strong>1,000 shards/node</strong>. Frozen: <strong>3,000 shards/node</strong>. Cold/frozen nodes carry no indexing pressure — only search metadata — so much higher densities are safe.</div>
+          </div>
+          <div class="ref-card">
+            <div class="ref-card-title">Cluster Shard Limit</div>
+            <div class="ref-card-body">Elastic guideline: <strong>1,000 shards × number of non-frozen data nodes</strong>. This scales with your cluster size. Exceeding the limit increases cluster state overhead and can degrade master stability.</div>
+          </div>
+          <div class="ref-card">
+            <div class="ref-card-title">Cluster Heap Rule</div>
+            <div class="ref-card-body">Across hot + warm data nodes, maintain no more than <strong>20 shards per heap-GB of total data-node heap</strong>. This is the cluster-wide equivalent of the per-node ceiling.</div>
+          </div>
+          <div class="ref-card">
+            <div class="ref-card-title">ILM Rollover</div>
+            <div class="ref-card-body">Use ILM rollover with a <strong>max_primary_shard_size</strong> of 50 GB or <strong>max_age</strong> of 1 day. This bounds shard size automatically without over-splitting at ingest time.</div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ── Section 7: Results Summary ───────────────────────────────── -->
+  <div class="section-card">
+    <div class="section-header" onclick="toggleSection('s-results')">
+      <div class="section-title-group">
+        <div class="section-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div>
+          <div class="section-title">Results Summary</div>
+          <div class="section-subtitle">Full deployment specification ready to export</div>
+        </div>
+      </div>
+      <svg class="chevron open" id="chev-s-results" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="section-body" id="s-results">
+      <div style="overflow-x:auto">
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>RAM</th>
+              <th>Storage</th>
+              <th>Retention</th>
+              <th>Nodes / Zones</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </div>
+      <div class="export-row">
+        <button class="btn btn-ghost" onclick="copySummaryText()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy as Text
+        </button>
+        <button class="btn btn-ghost" onclick="exportJson()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export JSON
+        </button>
+        <button class="btn btn-primary" onclick="triggerImport()" id="importBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 5 17 10"/><line x1="12" y1="5" x2="12" y2="17"/></svg>
+          Import JSON
+        </button>
+        <input type="file" id="importFileInput" accept=".json,application/json" style="display:none" onchange="importJson(event)">
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─── Dark Mode ──────────────────────────────────────────────────────────
+(function () {
+  const t = document.querySelector('[data-theme-toggle]'),
+        r = document.documentElement;
+  let d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  r.setAttribute('data-theme', d);
+  updateThemeIcon(d);
+  t && t.addEventListener('click', () => {
+    d = d === 'dark' ? 'light' : 'dark';
+    r.setAttribute('data-theme', d);
+    updateThemeIcon(d);
+  });
+  function updateThemeIcon(mode) {
+    if (!t) return;
+    t.innerHTML = mode === 'dark'
+      ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  }
+})();
+
+// ─── Section Accordion ─────────────────────────────────────────────────
+function toggleSection(id) {
+  const body = document.getElementById(id);
+  const chev = document.getElementById('chev-' + id);
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !isHidden);
+  chev && chev.classList.toggle('open', isHidden);
+}
+
+// ─── Utilities ─────────────────────────────────────────────────────────
+function formatSize(n) {
+  const v = Math.ceil(n);
+  if (v >= 1024) return (v / 1024).toFixed(1) + ' TB';
+  return v.toLocaleString() + ' GB';
+}
+function pct(part, total) { return total > 0 ? ((part / total) * 100).toFixed(1) + '%' : '0%'; }
+function zoneText(n, lbl) { return n + (n === 1 ? ' ' + lbl : ' ' + lbl + 's'); }
+function el(id) { return document.getElementById(id); }
+
+// ─── Client display ────────────────────────────────────────────────────
+function updateClientDisplay() {
+  const v = el('clientName').value.trim();
+  el('clientDisplay').textContent = v || 'New Client';
+}
+
+// ─── Sync slider ↔ number ──────────────────────────────────────────────
+function sync(id) {
+  const s = el(id + 'Slider'), n = el(id + 'Num');
+  if (document.activeElement === s) n.value = s.value;
+  else s.value = n.value;
+  if (id === 'ingest') el('badge-ingest').textContent = n.value + ' GB/day';
+  calculate();
+}
+
+// ─── Use-Case Presets ──────────────────────────────────────────────────
+const useCaseIds = ['siem', 'apm', 'security', 'search', 'custom'];
+function applyUseCase(uc) {
+  useCaseIds.forEach(id => el('uc-' + id).classList.toggle('active', id === uc));
+  const presets = {
+    siem:     { ingest:200, hot:7,  warm:30, cold:90,  frozen:365, hotRatio:30,  warmRatio:160, coldRatio:160, frozenRatio:1500, enableWarm:true, enableCold:true, enableFrozen:true, kibRam:4  },
+    apm:      { ingest:500, hot:3,  warm:14, cold:60,  frozen:180, hotRatio:25,  warmRatio:120, coldRatio:160, frozenRatio:1500, enableWarm:true, enableCold:true, enableFrozen:true, kibRam:8  },
+    security: { ingest:100, hot:14, warm:60, cold:180, frozen:730, hotRatio:30,  warmRatio:160, coldRatio:160, frozenRatio:1500, enableWarm:true, enableCold:true, enableFrozen:true, kibRam:8  },
+    search:   { ingest:20,  hot:90, warm:0,  cold:0,   frozen:0,   hotRatio:30,  warmRatio:160, coldRatio:160, frozenRatio:1500, enableWarm:false,enableCold:false,enableFrozen:false,kibRam:8  },
+    custom:   { ingest:50, hot:30, warm:90, cold:365, frozen:730, hotRatio:30, warmRatio:160, coldRatio:160, frozenRatio:1500, enableWarm:true, enableCold:true, enableFrozen:true, kibRam:4 }
+  };
+  const p = presets[uc];
+  if (!p) return;
+  el('ingestNum').value = p.ingest; el('ingestSlider').value = p.ingest;
+  el('badge-ingest').textContent = p.ingest + ' GB/day';
+  el('hotNum').value = p.hot; el('hotSlider').value = p.hot;
+  el('warmNum').value = p.warm; el('warmSlider').value = p.warm;
+  el('coldNum').value = p.cold; el('coldSlider').value = p.cold;
+  el('frozenNum').value = p.frozen; el('frozenSlider').value = p.frozen;
+  el('hotRatio').value = p.hotRatio;
+  el('warmRatio').value = p.warmRatio;
+  el('coldRatio').value = p.coldRatio;
+  el('frozenRatio').value = p.frozenRatio;
+  el('enableWarm').checked   = p.enableWarm;
+  el('enableCold').checked   = p.enableCold;
+  el('enableFrozen').checked = p.enableFrozen;
+  el('kibanaRam').value = p.kibRam;
+  flashAdvanced();
+  calculate();
+}
+
+// ─── Architecture Presets ──────────────────────────────────────────────
+const archIds = ['elastic', 'expedient', 'minimal'];
+function applyArchPreset(p) {
+  archIds.forEach(id => el('arch-' + id).classList.toggle('active', id === p));
+  if (p === 'elastic') {
+    el('hotRatio').value=30; el('warmRatio').value=160; el('coldRatio').value=160; el('frozenRatio').value=1500;
+    el('hotAzs').value=2; el('warmAzs').value=2; el('coldAzs').value=1; el('frozenAzs').value=1; el('kibAzs').value=2;
+    el('hotReplicas').value=1; el('warmReplicas').value=1; el('coldReplicas').value=0;
+  } else if (p === 'expedient') {
+    el('hotRatio').value=96; el('warmRatio').value=200; el('coldRatio').value=160; el('frozenRatio').value=1500;
+    el('hotAzs').value=2; el('warmAzs').value=2; el('coldAzs').value=1; el('frozenAzs').value=1; el('kibAzs').value=2;
+    el('hotReplicas').value=1; el('warmReplicas').value=1; el('coldReplicas').value=0;
+  } else if (p === 'minimal') {
+    el('hotRatio').value=30; el('warmRatio').value=160; el('coldRatio').value=160; el('frozenRatio').value=1500;
+    el('hotAzs').value=1; el('warmAzs').value=1; el('coldAzs').value=1; el('frozenAzs').value=1; el('kibAzs').value=1;
+    el('hotReplicas').value=0; el('warmReplicas').value=0; el('coldReplicas').value=0;
+  }
+  flashAdvanced();
+  calculate();
+}
+
+function flashAdvanced() {
+  document.querySelectorAll('#s-advanced .num-input').forEach(inp => {
+    inp.classList.remove('highlight-pulse');
+    void inp.offsetWidth;
+    inp.classList.add('highlight-pulse');
+  });
+}
+
+// ─── Reset ─────────────────────────────────────────────────────────────
+function resetToDefaults() {
+  el('clientName').value = ''; updateClientDisplay();
+  el('ingestNum').value=100; el('ingestSlider').value=100; el('badge-ingest').textContent='100 GB/day';
+  el('enableWarm').checked=true; el('enableCold').checked=true; el('enableFrozen').checked=true;
+  el('hotNum').value=7; el('hotSlider').value=7;
+  el('warmNum').value=30; el('warmSlider').value=30;
+  el('coldNum').value=90; el('coldSlider').value=90;
+  el('frozenNum').value=365; el('frozenSlider').value=365;
+  el('hotAzs').value=2; el('warmAzs').value=2; el('coldAzs').value=1; el('frozenAzs').value=1;
+  el('hotReplicas').value=1; el('warmReplicas').value=1; el('coldReplicas').value=0;
+  el('kibanaRam').value=4; el('kibAzs').value=2;
+  el('hotRatio').value=30; el('warmRatio').value=160; el('coldRatio').value=160; el('frozenRatio').value=1500;
+  el('hotOverhead').value=1.5; el('warmOverhead').value=1.25; el('coldOverhead').value=1.1;
+  el('enableWatermark').checked=true; el('watermarkPct').value=15;
+  el('targetShardSize').value=30; el('systemShards').value=250;
+  el('indicesPerDay').value=1; el('snapshotRetentionDays').value=7;
+  if(el('snapIndexType')) el('snapIndexType').value='rolling';
+  if(el('ilmRolloverMode')){ el('ilmRolloverMode').value='age'; onRolloverModeChange(); }
+  if(el('ilmMaxIndexSizeGb')) el('ilmMaxIndexSizeGb').value=50;
+  if(el('ilmMaxDocsMillion')) el('ilmMaxDocsMillion').value=0;
+  el('hotVcpu').value=8; el('allocatorCount').value=14; el('allocatorRam').value=1412;
+  el('hotNpz').value=1; el('warmNpz').value=1; el('coldNpz').value=1; el('frozenNpz').value=1; el('frozenCache').value=1000;
+  el('masterAuto').checked=true; el('enableMaster').checked=false;
+  el('masterRam').value=4; el('masterNodes').value=3;
+  el('enableCoord').checked=false; el('coordRam').value=8; el('coordNodes').value=2;
+  el('enableMl').checked=false; el('mlRam').value=16; el('mlNodes').value=1;
+  el('enableEnt').checked=false; el('entRam').value=4; el('entNodes').value=2;
+  useCaseIds.forEach(id => el('uc-' + id).classList.toggle('active', id === 'siem'));
+  archIds.forEach(id => el('arch-' + id).classList.toggle('active', id === 'elastic'));
+  calculate();
+}
+
+// ─── Share URL ─────────────────────────────────────────────────────────
+function onRolloverModeChange() {
+  const isSz = el('ilmRolloverMode') && el('ilmRolloverMode').value === 'size';
+  if (el('ilmMaxSizeField')) el('ilmMaxSizeField').style.display = isSz ? '' : 'none';
+  if (el('ilmMaxDocsField')) el('ilmMaxDocsField').style.display = isSz ? '' : 'none';
+  if (el('ilmHintField'))   el('ilmHintField').style.display    = 'none'; // calculate() will show if needed
+  calculate();
+}
+
+function shareUrl() {
+  const p = new URLSearchParams({
+    v:'9', client: el('clientName').value,
+    ingest:el('ingestNum').value,
+    hotDays:el('hotNum').value, warmDays:el('warmNum').value, coldDays:el('coldNum').value, frozenDays:el('frozenNum').value,
+    enableWarm:el('enableWarm').checked?1:0, enableCold:el('enableCold').checked?1:0, enableFrozen:el('enableFrozen').checked?1:0,
+    hotAzs:el('hotAzs').value, warmAzs:el('warmAzs').value, coldAzs:el('coldAzs').value, frozenAzs:el('frozenAzs').value,
+    hotReplicas:el('hotReplicas').value, warmReplicas:el('warmReplicas').value, coldReplicas:el('coldReplicas').value,
+    kibRam:el('kibanaRam').value, kibAzs:el('kibAzs').value,
+    hotRatio:el('hotRatio').value, warmRatio:el('warmRatio').value, coldRatio:el('coldRatio').value, frozenRatio:el('frozenRatio').value,
+    hotOvhd:el('hotOverhead').value, warmOvhd:el('warmOverhead').value, coldOvhd:el('coldOverhead').value,
+    wmOn:el('enableWatermark').checked?1:0, wmPct:el('watermarkPct').value,
+    shardSize:el('targetShardSize').value, sysShards:el('systemShards').value,
+    ipd:el('indicesPerDay').value, snapDays:el('snapshotRetentionDays').value,
+    ilmMode:el('ilmRolloverMode')?el('ilmRolloverMode').value:'age',
+    ilmMaxSize:el('ilmMaxIndexSizeGb')?el('ilmMaxIndexSizeGb').value:50,
+    ilmMaxDocs:el('ilmMaxDocsMillion')?el('ilmMaxDocsMillion').value:0,
+    snapType:el('snapIndexType')?el('snapIndexType').value:'rolling',
+    hotVcpu:el('hotVcpu').value, allocCnt:el('allocatorCount').value, allocRam:el('allocatorRam').value,
+    hotNpz:el('hotNpz').value, warmNpz:el('warmNpz').value, coldNpz:el('coldNpz').value, frozenNpz:el('frozenNpz').value, frozenCache:el('frozenCache').value,
+    masterAuto:el('masterAuto').checked?1:0, masterOn:el('enableMaster').checked?1:0,
+    masterRam:el('masterRam').value, masterNodes:el('masterNodes').value,
+    coordOn:el('enableCoord').checked?1:0, coordRam:el('coordRam').value, coordNodes:el('coordNodes').value,
+    mlOn:el('enableMl').checked?1:0, mlRam:el('mlRam').value, mlNodes:el('mlNodes').value,
+    entOn:el('enableEnt').checked?1:0, entRam:el('entRam').value, entNodes:el('entNodes').value,
+  });
+  const url = location.href.split('?')[0] + '?' + p.toString();
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.querySelector('[onclick="shareUrl()"]');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Copied!</span>';
+    setTimeout(() => btn.innerHTML = orig, 2000);
+  }).catch(() => prompt('Copy this link:', url));
+}
+
+// ─── Load from URL ─────────────────────────────────────────────────────
+function loadFromUrl() {
+  const p = new URLSearchParams(location.search);
+  if (!p.has('ingest')) return;
+  const set = (id, key) => { const v = p.get(key); if (v !== null) el(id).value = v; };
+  const setCheck = (id, key) => { const v = p.get(key); if (v !== null) el(id).checked = v === '1'; };
+  if (p.get('client')) { el('clientName').value = p.get('client'); updateClientDisplay(); }
+  set('ingestNum','ingest'); set('ingestSlider','ingest');
+  set('hotNum','hotDays'); set('hotSlider','hotDays');
+  set('warmNum','warmDays'); set('warmSlider','warmDays');
+  set('coldNum','coldDays'); set('coldSlider','coldDays');
+  set('frozenNum','frozenDays'); set('frozenSlider','frozenDays');
+  setCheck('enableWarm','enableWarm'); setCheck('enableCold','enableCold'); setCheck('enableFrozen','enableFrozen');
+  set('hotAzs','hotAzs'); set('warmAzs','warmAzs'); set('coldAzs','coldAzs'); set('frozenAzs','frozenAzs');
+  set('hotReplicas','hotReplicas'); set('warmReplicas','warmReplicas'); set('coldReplicas','coldReplicas');
+  set('kibanaRam','kibRam'); set('kibAzs','kibAzs');
+  set('hotRatio','hotRatio'); set('warmRatio','warmRatio'); set('coldRatio','coldRatio'); set('frozenRatio','frozenRatio');
+  set('hotOverhead','hotOvhd'); set('warmOverhead','warmOvhd'); set('coldOverhead','coldOvhd');
+  setCheck('enableWatermark','wmOn'); set('watermarkPct','wmPct');
+  set('targetShardSize','shardSize'); set('systemShards','sysShards');
+  set('indicesPerDay','ipd'); set('snapshotRetentionDays','snapDays');
+  if(el('ilmRolloverMode')&&d.ilmMode){ el('ilmRolloverMode').value=d.ilmMode; onRolloverModeChange(); }
+  if(el('ilmMaxIndexSizeGb')&&d.ilmMaxSize!==undefined) el('ilmMaxIndexSizeGb').value=d.ilmMaxSize;
+  if(el('ilmMaxDocsMillion')&&d.ilmMaxDocs!==undefined) el('ilmMaxDocsMillion').value=d.ilmMaxDocs;
+  if(p.get('snapType') && el('snapIndexType')) el('snapIndexType').value=p.get('snapType');
+  set('hotVcpu','hotVcpu'); set('allocatorCount','allocCnt'); set('allocatorRam','allocRam');
+  set('hotNpz','hotNpz'); set('warmNpz','warmNpz'); set('coldNpz','coldNpz'); set('frozenNpz','frozenNpz'); set('frozenCache','frozenCache');
+  setCheck('masterAuto','masterAuto'); setCheck('enableMaster','masterOn');
+  set('masterRam','masterRam'); set('masterNodes','masterNodes');
+  setCheck('enableCoord','coordOn'); set('coordRam','coordRam'); set('coordNodes','coordNodes');
+  setCheck('enableMl','mlOn'); set('mlRam','mlRam'); set('mlNodes','mlNodes');
+  setCheck('enableEnt','entOn'); set('entRam','entRam'); set('entNodes','entNodes');
+  if (el('ingestNum').value) el('badge-ingest').textContent = el('ingestNum').value + ' GB/day';
+}
+
+// ─── Main Calculate ─────────────────────────────────────────────────────
+function calculate() {
+  const isWarm   = el('enableWarm').checked;
+  const isCold   = el('enableCold').checked;
+  const isFrozen = el('enableFrozen').checked;
+
+  // Disable tier inputs when unchecked
+  ['warmNum','warmSlider','warmAzs','warmReplicas'].forEach(id => el(id).disabled = !isWarm);
+  ['coldNum','coldSlider','coldAzs','coldReplicas'].forEach(id => el(id).disabled = !isCold);
+  ['frozenNum','frozenSlider','frozenAzs'].forEach(id => el(id).disabled = !isFrozen);
+
+  el('tc-warm').classList.toggle('dim', !isWarm);
+  el('tc-cold').classList.toggle('dim', !isCold);
+  el('tc-frozen').classList.toggle('dim', !isFrozen);
+
+  const isCoord = el('enableCoord').checked;
+  const isMl    = el('enableMl').checked;
+  const isEnt   = el('enableEnt').checked;
+  el('card-coord').classList.toggle('off', !isCoord);
+  el('card-ml').classList.toggle('off', !isMl);
+  el('card-ent').classList.toggle('off', !isEnt);
+
+  // Read inputs
+  const ingest     = parseFloat(el('ingestNum').value)    || 0;
+  const hotDays    = parseFloat(el('hotNum').value)       || 0;
+  const warmDays   = isWarm   ? (parseFloat(el('warmNum').value)   || 0) : 0;
+  const coldDays   = isCold   ? (parseFloat(el('coldNum').value)   || 0) : 0;
+  const frozenDays = isFrozen ? (parseFloat(el('frozenNum').value) || 0) : 0;
+
+  const hotAzs    = parseFloat(el('hotAzs').value)    || 1;
+  const warmAzs   = isWarm   ? (parseFloat(el('warmAzs').value)   || 1) : 0;
+  const coldAzs   = isCold   ? (parseFloat(el('coldAzs').value)   || 1) : 0;
+  const frozenAzs = isFrozen ? (parseFloat(el('frozenAzs').value) || 1) : 0;
+
+  const hotReplicas  = Math.max(0, parseInt(el('hotReplicas').value)  || 0);
+  const warmReplicas = Math.max(0, parseInt(el('warmReplicas').value) || 0);
+  const coldReplicas = Math.max(0, parseInt(el('coldReplicas').value) || 0);
+
+  const kibanaRamPerNode = parseFloat(el('kibanaRam').value) || 0;
+  const kibAzs           = parseFloat(el('kibAzs').value)   || 1;
+
+  const hotRatio    = parseFloat(el('hotRatio').value)    || 30;
+  const warmRatio   = parseFloat(el('warmRatio').value)   || 160;
+  const coldRatio   = parseFloat(el('coldRatio').value)   || 1500;
+  const frozenRatio = parseFloat(el('frozenRatio').value) || 8500;
+
+  // Fix 2: Per-tier overhead multipliers
+  const hotOverhead    = Math.max(1, parseFloat(el('hotOverhead').value)  || 1.5);
+  const warmOverhead   = Math.max(1, parseFloat(el('warmOverhead').value) || 1.25);
+  const coldOverhead   = Math.max(1, parseFloat(el('coldOverhead').value) || 1.1);
+  const frozenOverhead = coldOverhead; // frozen uses same merged-data assumption as cold
+  // Legacy alias used elsewhere (shard model still uses hot overhead for primary disk estimate)
+  const overhead = hotOverhead;
+
+  const watermarkOn  = el('enableWatermark').checked;
+  const watermarkPct = Math.min(50, Math.max(0, parseFloat(el('watermarkPct').value) || 0));
+  const watermarkMul = watermarkOn && watermarkPct > 0 ? 1 / (1 - watermarkPct / 100) : 1;
+
+  const hotNpz    = Math.max(1, parseInt(el('hotNpz').value)    || 1);
+  const warmNpz   = Math.max(1, parseInt(el('warmNpz').value)   || 1);
+  const coldNpz   = Math.max(1, parseInt(el('coldNpz').value)   || 1);
+  const frozenNpz = Math.max(1, parseInt(el('frozenNpz').value) || 1);
+  const frozenCache = Math.max(0, parseFloat(el('frozenCache').value) || 0);
+
+  const targetShardSize        = parseFloat(el('targetShardSize').value) || 30;
+  const systemShards           = Math.max(0, parseInt(el('systemShards').value) || 0);
+  const indicesPerDay          = Math.max(1, parseInt(el('indicesPerDay').value) || 1);
+  const snapshotRetentionDays  = Math.max(0, parseInt(el('snapshotRetentionDays').value) || 0);
+
+  // Fix 5: Snapshot index type (rolling vs non-rolling)
+  // ILM Rollover mode
+  const ilmRolloverMode   = el('ilmRolloverMode') ? el('ilmRolloverMode').value : 'age';
+  const isSizeRollover    = ilmRolloverMode === 'size';
+  const ilmMaxIndexSizeGb = Math.max(1, parseFloat(el('ilmMaxIndexSizeGb') && el('ilmMaxIndexSizeGb').value ? el('ilmMaxIndexSizeGb').value : 50) || 50);
+  const ilmMaxDocsMillion = Math.max(0, parseFloat(el('ilmMaxDocsMillion') && el('ilmMaxDocsMillion').value ? el('ilmMaxDocsMillion').value : 0) || 0);
+
+  const snapIndexType   = el('snapIndexType') ? el('snapIndexType').value : 'rolling';
+  const isNonRolling    = snapIndexType === 'nonrolling';
+
+  // Fix 6: CPU hint inputs
+  const hotVcpu = Math.max(1, parseInt(el('hotVcpu').value) || 8);
+
+  // Fix 7: ECE allocator overhead
+  const allocatorCount  = Math.max(1, parseInt(el('allocatorCount').value) || 3);
+  const allocatorRamPer = Math.max(16, parseInt(el('allocatorRam').value)  || 256);
+  const ECE_CTRL_PLANE_GB = 12; // GB consumed by ECE control plane per allocator host (Elastic docs: 12 GB for allocator-only hosts)
+  const allocatorOverheadGB = allocatorCount * ECE_CTRL_PLANE_GB;
+  const allocatorTotalGB    = allocatorCount * allocatorRamPer;
+  const allocatorTenantGB   = allocatorTotalGB - allocatorOverheadGB;
+
+  // Storage — per-tier overhead
+  // ILM size-based rollover: derive active index count from ingest rate vs max index size
+  let hotData, hotActiveIndices;
+  if (isSizeRollover && ilmMaxIndexSizeGb > 0) {
+    const dailyOnDiskRaw  = ingest * hotOverhead; // GB/day on-disk primary
+    const activePerStream = Math.max(1, Math.ceil(dailyOnDiskRaw / ilmMaxIndexSizeGb));
+    hotActiveIndices      = activePerStream * indicesPerDay;
+    hotData = hotActiveIndices * ilmMaxIndexSizeGb * (1 + hotReplicas) * hotOverhead;
+    const docHint = ilmMaxDocsMillion > 0 ? ' · max_docs ' + ilmMaxDocsMillion + 'M set — verify doc rate' : '';
+    const hintText = hotActiveIndices + ' active index' + (hotActiveIndices !== 1 ? 'es' : '') +
+      ' (' + activePerStream + ' per stream × ' + indicesPerDay + ' stream' + (indicesPerDay !== 1 ? 's' : '') + ')' +
+      ' · max ' + ilmMaxIndexSizeGb + ' GB each' + docHint;
+    const hintEl = el('ilmRolloverHint');
+    const hintField = el('ilmHintField');
+    if (hintEl) hintEl.textContent = hintText;
+    if (hintField) hintField.style.display = '';
+  } else {
+    hotActiveIndices = hotDays * indicesPerDay;
+    hotData = ingest * hotDays * (1 + hotReplicas) * hotOverhead;
+    const hintField = el('ilmHintField');
+    if (hintField) hintField.style.display = 'none';
+  }
+  const warmData   = ingest * warmDays * (1 + warmReplicas) * warmOverhead;
+  const hotStorage  = hotData  * watermarkMul;
+  const warmStorage = warmData * watermarkMul;
+
+  const coldDataPrimary = ingest * coldDays * coldOverhead;
+  const coldData        = coldDataPrimary * (1 + coldReplicas);
+  const coldLocal       = coldData * watermarkMul;
+  const coldObjectGB    = coldDataPrimary;
+
+  const frozenData     = ingest * frozenDays * frozenOverhead;
+  const frozenLocal    = isFrozen ? (frozenNpz * frozenAzs * frozenCache) : 0;
+  const frozenObjectGB = frozenData;
+
+  // Fix 5: Snapshot object-store model
+  // Rolling: delta per day ≈ ingest*hotOverhead → multiply by retention
+  // Non-rolling: incremental snapshots are smaller; add initial full-snapshot line item
+  const snapshotDeltaGB  = ingest * hotOverhead;
+  const snapshotInitialGB = isNonRolling ? (hotData + warmData) : 0; // initial full snapshot of live data
+  const snapshotObjectGB  = snapshotDeltaGB * snapshotRetentionDays + snapshotInitialGB;
+
+  const totalStorage  = hotStorage + warmStorage + (isCold ? coldLocal : 0) + frozenLocal;
+  const objectStoreGB = (isCold ? coldObjectGB : 0) + (isFrozen ? frozenObjectGB : 0) + snapshotObjectGB;
+  const coldStorage   = isCold ? coldLocal : 0;
+  const frozenStorage = frozenLocal;
+
+  // RAM
+  const hotRam    = hotRatio    > 0 ? hotData  / hotRatio    : 0;
+  const warmRam   = warmRatio   > 0 ? warmData / warmRatio   : 0;
+  const coldRam   = coldRatio   > 0 && isCold   ? coldData       / coldRatio   : 0;
+  const frozenRam = frozenRatio > 0 && isFrozen ? frozenObjectGB / frozenRatio : 0;
+  const kibanaRam = kibanaRamPerNode * kibAzs;
+
+  // Master auto-derive
+  const masterAutoOn = el('masterAuto').checked;
+  const masterRamEl  = el('masterRam');
+  const masterNodesEl= el('masterNodes');
+  const masterEnableEl= el('enableMaster');
+
+  const dailyOnDiskMS = ingest * overhead;
+  const priShardsMS   = isSizeRollover
+    ? Math.max(1, Math.ceil(ilmMaxIndexSizeGb / targetShardSize)) * hotActiveIndices
+    : Math.max(1, Math.ceil(dailyOnDiskMS / targetShardSize)) * indicesPerDay;
+  const hotShardsMS     = priShardsMS * hotDays * (1 + hotReplicas) + systemShards;
+  const warmShardsMS    = isWarm ? priShardsMS * warmDays * (1 + warmReplicas) : 0;
+  const totalClusterShards = hotShardsMS + warmShardsMS;
+
+  const maxZones = Math.max(hotAzs, isWarm ? warmAzs : 0, isCold ? coldAzs : 0, isFrozen ? frozenAzs : 0);
+  const totalDataNodes = (hotAzs * hotNpz) + (isWarm ? warmAzs*warmNpz : 0) + (isCold ? coldAzs*coldNpz : 0) + (isFrozen ? frozenAzs*frozenNpz : 0);
+  const totalDataRam   = hotRam + warmRam + coldRam + frozenRam;
+  const avgDataNodeRam = totalDataNodes > 0 ? totalDataRam / totalDataNodes : 0;
+
+  const ruleZoneOk   = maxZones >= 3;
+  const ruleNodesOk  = totalDataNodes > 3;
+  const ruleRamOk    = avgDataNodeRam >= 16;
+  const ruleRequired = totalDataNodes > 6 || totalClusterShards > 5000;
+
+  let masterSeverity = 'ok', masterStatusLabel = '';
+  const masterItems = [];
+  const bumpSev = lvl => { if (lvl === 'bad' || (lvl === 'warn' && masterSeverity === 'ok')) masterSeverity = lvl; };
+
+  let isMaster;
+  if (masterAutoOn) {
+    if (!ruleZoneOk) {
+      masterStatusLabel = 'Disabled — ' + maxZones + ' zone(s) only';
+      masterItems.push('Master quorum requires 3 AZs to avoid split-brain.'); bumpSev('warn');
+      masterEnableEl.checked = false; masterNodesEl.value = 0;
+    } else if (!ruleNodesOk) {
+      masterStatusLabel = 'Disabled — only ' + totalDataNodes + ' data nodes';
+      masterItems.push('Share master-eligible role on data nodes with ≤ 3 data nodes.');
+      masterEnableEl.checked = false; masterNodesEl.value = 0;
+    } else if (!ruleRamOk) {
+      masterStatusLabel = 'Disabled — avg node ' + avgDataNodeRam.toFixed(1) + ' GB RAM';
+      masterItems.push('Cluster too small to split control plane (avg node < 16 GB).');
+      masterEnableEl.checked = false; masterNodesEl.value = 0;
+    } else if (ruleRequired) {
+      // Fix 3: Scale master RAM with cluster size
+      // 4 GB  = small  (<= 10 data nodes or <= 5k shards)
+      // 8 GB  = medium (11-30 nodes or 5k-20k shards)
+      // 16 GB = large  (>30 nodes or >20k shards)
+      const autoMasterRam = (totalDataNodes > 30 || totalClusterShards > 20000) ? 16
+                          : (totalDataNodes > 10 || totalClusterShards > 5000)  ? 8
+                          : 4;
+      masterStatusLabel = 'Required — 3 × ' + autoMasterRam + ' GB';
+      if (totalDataNodes > 6) masterItems.push(totalDataNodes + ' data nodes (> 6) — offload control plane.');
+      if (totalClusterShards > 5000) masterItems.push(totalClusterShards.toLocaleString() + ' shards (> 5,000) — offload coordination.');
+      masterItems.push('Master RAM scaled to ' + autoMasterRam + ' GB based on cluster size.');
+      masterRamEl.value = autoMasterRam;
+      masterNodesEl.value = 3; masterEnableEl.checked = true; bumpSev('ok');
+    } else {
+      masterStatusLabel = 'Optional — 4–6 nodes, no shard pressure';
+      masterItems.push('Cluster allows but does not require dedicated masters.');
+      masterEnableEl.checked = false; masterNodesEl.value = 0;
+    }
+    isMaster = masterEnableEl.checked;
+    masterRamEl.classList.add('locked-input');    masterRamEl.readOnly = true;
+    masterNodesEl.classList.add('locked-input');  masterNodesEl.readOnly = true;
+    masterEnableEl.disabled = true;
+  } else {
+    masterRamEl.classList.remove('locked-input');  masterRamEl.readOnly = false;
+    masterNodesEl.classList.remove('locked-input');masterNodesEl.readOnly = false;
+    masterEnableEl.disabled = false;
+    isMaster = masterEnableEl.checked;
+    const uNodes = parseFloat(masterNodesEl.value)||0, uRam = parseFloat(masterRamEl.value)||0;
+    if (isMaster && uNodes > 0) {
+      if (!ruleZoneOk) { masterItems.push('Needs 3 AZs for quorum (have ' + maxZones + ').'); bumpSev('bad'); }
+      if (uRam < 4) { masterItems.push('Master RAM ' + uRam + ' GB < 4 GB minimum.'); bumpSev('bad'); }
+      if (uNodes !== 3 && ruleZoneOk) { masterItems.push('Recommend exactly 3 masters (have ' + uNodes + ').'); bumpSev('warn'); }
+      masterStatusLabel = masterSeverity === 'ok' ? 'Manual — all rules pass' : 'Manual — ' + masterItems.length + ' issue(s)';
+    } else if (!isMaster && ruleRequired && ruleZoneOk && ruleRamOk) {
+      masterItems.push('Cluster size warrants 3 × ≥ 4 GB dedicated masters.'); bumpSev('warn');
+      masterStatusLabel = 'Manual — masters recommended';
+    } else {
+      masterStatusLabel = 'Manual — masters not required'; masterItems.push('No rule violations.');
+    }
+  }
+  el('card-master').classList.toggle('off', !isMaster);
+  const msEl = el('masterStatus');
+  msEl.className = 'master-status ' + masterSeverity;
+  msEl.innerHTML = '<strong>' + masterStatusLabel + '</strong><ul>' + masterItems.map(r => '<li>' + r + '</li>').join('') + '</ul>';
+
+  // Infra RAM
+  const masterRamTotal = isMaster ? (parseFloat(masterRamEl.value)||0) * (parseFloat(masterNodesEl.value)||0) : 0;
+  const coordRamTotal  = isCoord  ? (parseFloat(el('coordRam').value)||0) * (parseFloat(el('coordNodes').value)||0) : 0;
+  const mlRamTotal     = isMl     ? (parseFloat(el('mlRam').value)||0)   * (parseFloat(el('mlNodes').value)||0)   : 0;
+  const entRamTotal    = isEnt    ? (parseFloat(el('entRam').value)||0)   * (parseFloat(el('entNodes').value)||0)   : 0;
+  const infraRam = masterRamTotal + coordRamTotal + mlRamTotal + entRamTotal;
+  const totalRam = hotRam + warmRam + coldRam + frozenRam + kibanaRam + infraRam;
+
+  el('masterTotalRam').textContent = formatSize(masterRamTotal) + ' RAM';
+  el('coordTotalRam').textContent  = formatSize(coordRamTotal)  + ' RAM';
+  el('mlTotalRam').textContent     = formatSize(mlRamTotal)     + ' RAM';
+  el('entTotalRam').textContent    = formatSize(entRamTotal)    + ' RAM';
+
+  // KPI dashboard
+  el('totalRam').textContent     = formatSize(totalRam);
+  el('totalStorage').textContent = formatSize(totalStorage);
+  el('totalObject').textContent  = formatSize(objectStoreGB);
+  const wmTxt = watermarkMul > 1 ? ' (incl. ' + watermarkPct + '% headroom)' : '';
+  el('totalStorageSub').textContent = 'hot + warm + cold + frozen cache' + wmTxt;
+  el('totalObjectSub').textContent  = 'cold + frozen + ' + snapshotRetentionDays + 'd snapshots' + (isNonRolling ? ' + initial snapshot' : '');
+
+  // Fix 7: Allocator overhead note under Total RAM KPI
+  const aoEl = el('allocatorOverheadSub');
+  if (aoEl) {
+    if (allocatorCount > 0 && allocatorRamPer > 0) {
+      const utilizationPct = totalRam > 0 ? Math.round(totalRam / allocatorTenantGB * 100) : 0;
+      const fitsTxt = totalRam <= allocatorTenantGB
+        ? utilizationPct + '% of ' + formatSize(allocatorTenantGB) + ' usable tenant RAM'
+        : '⚠ Exceeds ' + formatSize(allocatorTenantGB) + ' usable tenant RAM — add allocators';
+      aoEl.textContent = fitsTxt;
+      aoEl.style.color = totalRam > allocatorTenantGB ? 'var(--c-bad)' : totalRam > allocatorTenantGB * 0.85 ? 'var(--c-warn)' : 'var(--text-muted)';
+    } else {
+      aoEl.textContent = '';
+    }
+  }
+
+  // Fix 4: Frozen cache sanity check
+  const fcEl = el('frozenCacheHealth');
+  if (fcEl) {
+    if (isFrozen && frozenData > 0 && frozenLocal > 0) {
+      const cachePct = (frozenLocal / frozenData) * 100;
+      const cacheSev = cachePct < 5 ? 'bad' : cachePct < 10 ? 'warn' : 'ok';
+      const cacheIcon = cachePct < 5 ? '✗' : cachePct < 10 ? '⚠' : '✓';
+      const cacheMsg  = cachePct < 5
+        ? 'Frozen cache is only ' + cachePct.toFixed(1) + '% of frozen data volume — likely to thrash. Elastic guidance: 5% minimum starting point; below 5% is high-risk.'
+        : cachePct < 10
+        ? 'Frozen cache is ' + cachePct.toFixed(1) + '% of frozen data volume (target: 5–10%). Consider increasing for better hit rates.'
+        : 'Frozen cache (' + cachePct.toFixed(1) + '% of frozen data) meets Elastic guidance of 5–10%.';
+      fcEl.style.display = 'block';
+      fcEl.className = 'cluster-health-banner ' + cacheSev;
+      fcEl.innerHTML = '<div class="cluster-health-title">' + cacheIcon + ' ' + cacheMsg + '</div>' +
+        '<div class="cluster-health-meta">Total cache: ' + formatSize(frozenLocal) + ' vs frozen data: ' + formatSize(frozenData) + '</div>';
+    } else {
+      fcEl.style.display = 'none';
+    }
+  }
+
+  // Fix 6: CPU indexing throughput hint for hot tier
+  const cpuEl = el('cpuHint');
+  if (cpuEl) {
+    // Heuristic: ~1 GB/hour ingest per 4 vCPUs (workload-specific — not official Elastic guidance)
+    // = ingest_gb_per_day / 24 hours = hourly rate; needed vCPUs = hourlyRate * 4
+    const hotHourlyGB     = ingest / 24;
+    const neededVcpuTotal = hotHourlyGB * 4;
+    const hotTotalNodesForCPU = hotAzs * hotNpz;
+    const neededVcpuPerNode   = hotTotalNodesForCPU > 0 ? neededVcpuTotal / hotTotalNodesForCPU : neededVcpuTotal;
+    const cpuSev = hotVcpu < neededVcpuPerNode * 0.5 ? 'bad' : hotVcpu < neededVcpuPerNode ? 'warn' : 'ok';
+    if (hotTotalNodesForCPU > 0) {
+      cpuEl.style.display = 'block';
+      cpuEl.className = 'cluster-health-banner ' + cpuSev;
+      const cpuIcon = cpuSev === 'bad' ? '✗' : cpuSev === 'warn' ? '⚠' : '✓';
+      const cpuMsg  = cpuSev === 'ok'
+        ? cpuIcon + ' CPU appears adequate: ' + hotVcpu + ' vCPU/node vs ' + neededVcpuPerNode.toFixed(1) + ' vCPU/node needed for ' + hotHourlyGB.toFixed(1) + ' GB/hr ingest (4 vCPU/GB-hr heuristic)'
+        : cpuIcon + ' CPU may be undersized: need ≈' + neededVcpuPerNode.toFixed(1) + ' vCPU/node for ' + hotHourlyGB.toFixed(1) + ' GB/hr ingest but hot nodes configured with ' + hotVcpu + ' vCPU/node. Ingest bulk queue saturation risk.';
+      cpuEl.innerHTML = '<div class="cluster-health-title">' + cpuMsg + '</div>' +
+        '<div class="cluster-health-meta">Total hot vCPUs needed: ≈' + Math.ceil(neededVcpuTotal) + ' across ' + hotTotalNodesForCPU + ' nodes' +
+        ' &nbsp;·&nbsp; <em>Note: 4 vCPU/GB-hr is a workload-specific planning heuristic, not official Elastic guidance. CPU needs vary significantly by indexing complexity and field mapping.</em></div>';
+    } else {
+      cpuEl.style.display = 'none';
+    }
+  }
+
+  const retParts = [];
+  if (hotDays > 0) retParts.push(hotDays + 'd hot');
+  if (isWarm && warmDays > 0) retParts.push(warmDays + 'd warm');
+  if (isCold && coldDays > 0) retParts.push(coldDays + 'd cold');
+  if (isFrozen && frozenDays > 0) retParts.push(frozenDays + 'd frozen');
+  const totalRetDays = hotDays + (isWarm?warmDays:0) + (isCold?coldDays:0) + (isFrozen?frozenDays:0);
+  el('retentionPill').innerHTML = 'Total retention: <strong>' + totalRetDays + ' days</strong>' +
+    (retParts.length ? ' (' + retParts.join(' + ') + ')' : '');
+
+  // Stacked bars
+  const setBar = (id, w, title) => { el(id).style.width = w; el(id).title = title; };
+  setBar('ramHot',    pct(hotRam,    totalRam), 'Hot RAM: '    + formatSize(hotRam));
+  setBar('ramWarm',   pct(warmRam,   totalRam), 'Warm RAM: '   + formatSize(warmRam));
+  setBar('ramCold',   pct(coldRam,   totalRam), 'Cold RAM: '   + formatSize(coldRam));
+  setBar('ramFrozen', pct(frozenRam, totalRam), 'Frozen RAM: ' + formatSize(frozenRam));
+  setBar('ramKib',    pct(kibanaRam, totalRam), 'Kibana RAM: ' + formatSize(kibanaRam));
+  setBar('ramInfra',  pct(infraRam,  totalRam), 'Infra RAM: '  + formatSize(infraRam));
+  setBar('storeHot',    pct(hotStorage,    totalStorage), 'Hot Storage: '    + formatSize(hotStorage));
+  setBar('storeWarm',   pct(warmStorage,   totalStorage), 'Warm Storage: '   + formatSize(warmStorage));
+  setBar('storeCold',   pct(coldStorage,   totalStorage), 'Cold Storage: '   + formatSize(coldStorage));
+  setBar('storeFrozen', pct(frozenStorage, totalStorage), 'Frozen Cache: '   + formatSize(frozenStorage));
+
+  // Tier cards
+  const hotRamNode    = hotAzs   > 0 ? hotRam    / hotAzs    : 0;
+  const hotStoreNode  = hotAzs   > 0 ? hotStorage / hotAzs   : 0;
+  const warmRamNode   = warmAzs  > 0 ? warmRam   / warmAzs   : 0;
+  const warmStoreNode = warmAzs  > 0 ? warmStorage / warmAzs : 0;
+  const coldRamNode   = coldAzs  > 0 ? coldRam   / coldAzs   : 0;
+  const coldStoreNode = coldAzs  > 0 ? coldStorage / coldAzs : 0;
+  const frozenRamNode   = frozenAzs>0 ? frozenRam    / frozenAzs : 0;
+  const frozenStoreNode = frozenAzs>0 ? frozenStorage / frozenAzs : 0;
+  const kibRamNode    = kibAzs   > 0 ? kibanaRam / kibAzs    : 0;
+
+  const setTierCard = (pre, ram, store, ramNode, storeNode, azText, enabled, perLabel) => {
+    el('tc' + pre + 'Ram').textContent   = enabled ? formatSize(ram)   + ' RAM'    : 'Disabled';
+    el('tc' + pre + 'Store').textContent = enabled ? formatSize(store) + ' Local'  : '—';
+    el('tc' + pre + 'Per').innerHTML     = enabled
+      ? '<strong>Per Zone</strong> ' + formatSize(ramNode) + ' RAM · ' + formatSize(storeNode) + ' disk'
+      : '';
+    el('tc' + pre + 'Badge').textContent = azText;
+  };
+  setTierCard('Hot',    hotRam,    hotStorage,    hotRamNode,    hotStoreNode,    zoneText(hotAzs,'Zone'), true);
+  setTierCard('Warm',   warmRam,   warmStorage,   warmRamNode,   warmStoreNode,   zoneText(warmAzs,'Zone'), isWarm);
+  setTierCard('Cold',   coldRam,   coldStorage,   coldRamNode,   coldStoreNode,   zoneText(coldAzs,'Zone'), isCold);
+  setTierCard('Frozen', frozenRam, frozenStorage, frozenRamNode, frozenStoreNode, zoneText(frozenAzs,'Zone'), isFrozen);
+
+  el('tcKibRam').textContent = formatSize(kibanaRam) + ' RAM';
+  el('tcKibPer').innerHTML   = '<strong>Per Node</strong> ' + formatSize(kibRamNode) + ' RAM';
+  el('tcKibBadge').textContent = zoneText(kibAzs, 'Node');
+
+  // ── Shard Model
+  const dailyOnDisk           = ingest * overhead;
+  const primaryShardsPerIndex = Math.max(1, Math.ceil(dailyOnDisk / targetShardSize / indicesPerDay));
+  const actualShardSizeGB     = dailyOnDisk / (primaryShardsPerIndex * indicesPerDay);
+  const dailyShardCreation    = primaryShardsPerIndex * indicesPerDay;
+
+  const hotTotalShards    = dailyShardCreation * hotDays  * (1 + hotReplicas) + systemShards;
+  const warmTotalShards   = isWarm   ? dailyShardCreation * warmDays  * (1 + warmReplicas) : 0;
+  const coldTotalShards   = isCold   ? dailyShardCreation * coldDays  * (1 + coldReplicas) : 0;
+  const frozenTotalShards = isFrozen ? dailyShardCreation * frozenDays : 0;
+
+  const hotTotalNodes    = hotNpz    * hotAzs;
+  const warmTotalNodes   = isWarm   ? warmNpz   * warmAzs   : 0;
+  const coldTotalNodes   = isCold   ? coldNpz   * coldAzs   : 0;
+  const frozenTotalNodes = isFrozen ? frozenNpz * frozenAzs : 0;
+
+  const hotNodeRam    = hotAzs   > 0 ? Math.max(1, hotRam    / hotAzs    / hotNpz)    : 1;
+  const warmNodeRam   = warmAzs  > 0 ? Math.max(1, warmRam   / warmAzs   / warmNpz)   : 1;
+  const coldNodeRam   = coldAzs  > 0 ? Math.max(1, coldRam   / coldAzs   / coldNpz)   : 1;
+  const frozenNodeRam = frozenAzs>0  ? Math.max(1, frozenRam / frozenAzs / frozenNpz) : 1;
+
+  // Fix 1: Snap per-node RAM to ECE instance-size ladder before heap/ceiling
+  // ECE data.default instance sizes (official): 1, 2, 4, 8, 16, 32, 64 GB
+  const ECE_SIZES = [1, 2, 4, 8, 16, 32, 64];
+  const snapToECE = r => {
+    for (let i = 0; i < ECE_SIZES.length; i++) {
+      if (r <= ECE_SIZES[i]) return ECE_SIZES[i];
+    }
+    // For very large nodes, round up to next multiple of 64 GB
+    return Math.ceil(r / 64) * 64;
+  };
+  const hotNodeRamSnapped    = snapToECE(hotNodeRam);
+  const warmNodeRamSnapped   = snapToECE(warmNodeRam);
+  const coldNodeRamSnapped   = snapToECE(coldNodeRam);
+  const frozenNodeRamSnapped = snapToECE(frozenNodeRam);
+
+  // Heap helpers (JVM cap at 31 GB) — use snapped values
+  const heapGB   = r => Math.min(r / 2, 31);
+  const hotHeap    = heapGB(hotNodeRamSnapped);
+  const warmHeap   = heapGB(warmNodeRamSnapped);
+  const coldHeap   = heapGB(coldNodeRamSnapped);
+  const frozenHeap = heapGB(frozenNodeRamSnapped);
+
+  // Per-tier shard ceilings
+  // Hot/Warm: Elastic 8.3+ hard limit is 1,000 shards per node (not heap-based)
+  // Cold:     1,000 shards per node (metadata-only, no indexing pressure)
+  // Frozen:   3,000 shards per node (metadata + cache only)
+  const hotMaxSpn    = 1000;
+  const warmMaxSpn   = 1000;
+  const coldMaxSpn   = 1000;
+  const frozenMaxSpn = 3000;
+
+  // Shards per node
+  const hotSPN    = hotTotalNodes    > 0 ? Math.ceil(hotTotalShards    / hotTotalNodes)    : 0;
+  const warmSPN   = warmTotalNodes   > 0 ? Math.ceil(warmTotalShards   / warmTotalNodes)   : 0;
+  const coldSPN   = coldTotalNodes   > 0 ? Math.ceil(coldTotalShards   / coldTotalNodes)   : 0;
+  const frozenSPN = frozenTotalNodes > 0 ? Math.ceil(frozenTotalShards / frozenTotalNodes) : 0;
+
+  // Cluster-level shard totals and density
+  const clusterTotalShards = hotTotalShards +
+    (isWarm ? warmTotalShards : 0) +
+    (isCold ? coldTotalShards : 0) +
+    (isFrozen ? frozenTotalShards : 0);
+
+  // Hot+Warm density = (hot shards + warm shards) / (hot heap-GB total + warm heap-GB total)
+  // Target: ≤ 20 shards per GB of heap
+  const hotWarmTotalHeap   = (hotTotalNodes * hotHeap) + (isWarm ? warmTotalNodes * warmHeap : 0);
+  const hotWarmTotalShards = hotTotalShards + (isWarm ? warmTotalShards : 0);
+  const clusterDensity     = hotWarmTotalHeap > 0 ? hotWarmTotalShards / hotWarmTotalHeap : 0;
+
+  // Shard summary banner
+  let shardHtml = '<strong>' + primaryShardsPerIndex + ' primary shard' + (primaryShardsPerIndex!==1?'s':'') + ' per index</strong>' +
+    ' &nbsp;·&nbsp; <strong>' + indicesPerDay + ' ' + (indicesPerDay===1?'index':'indices') + '/day</strong>' +
+    ' &nbsp;·&nbsp; Actual shard size: <strong>' + actualShardSizeGB.toFixed(1) + ' GB</strong>' +
+    ' &nbsp;·&nbsp; System indices: <strong>' + systemShards.toLocaleString() + ' shards</strong>';
+  if      (actualShardSizeGB < 10) shardHtml += ' &nbsp;<span class="status-warn">⚠ Below 10 GB — consider fewer shards</span>';
+  else if (actualShardSizeGB > 50) shardHtml += ' &nbsp;<span class="status-warn">⚠ Above 50 GB — consider more shards</span>';
+  else                             shardHtml += ' &nbsp;<span class="status-ok">✓ Within 10–50 GB</span>';
+  el('shardSummary').innerHTML = shardHtml;
+
+  // Cluster shard limit: 1,000 shards per non-frozen data node (Elastic 8.3+ guidance)
+  const nonFrozenDataNodes = hotTotalNodes + warmTotalNodes + coldTotalNodes;
+  const clusterShardLimit  = Math.max(1000, nonFrozenDataNodes * 1000);
+  const clusterShardWarnAt = Math.round(clusterShardLimit * 0.8);
+
+  // Cluster health banner
+  const clusterShardBad  = clusterTotalShards > clusterShardLimit;
+  const clusterShardWarn = !clusterShardBad && clusterTotalShards > clusterShardWarnAt;
+  const clusterShardOk   = !clusterShardBad && !clusterShardWarn;
+  const clusterBannerSev = clusterShardBad ? 'bad' : clusterShardWarn ? 'warn' : 'ok';
+  const clusterBannerIcon = clusterShardBad ? '✗' : clusterShardWarn ? '⚠' : '✓';
+  const clusterBannerMsg  = clusterShardOk
+    ? 'All cluster shard checks passed'
+    : (clusterShardBad ? 'Cluster has critical shard issues' : 'Cluster has shard warnings — review below');
+  const clusterTotalsLine = 'Total shards: <strong>' + clusterTotalShards.toLocaleString() + ' / ' + clusterShardLimit.toLocaleString() + '</strong>' +
+    ' <span style="font-size:var(--text-xs);color:var(--text-muted)">(1,000 × ' + nonFrozenDataNodes + ' non-frozen nodes)</span>' +
+    ' &nbsp;·&nbsp; Hot+Warm heap density: <strong>' + clusterDensity.toFixed(1) + ' / 20 shards/GB-heap</strong>';
+  const cshEl = el('clusterShardHealth');
+  if (cshEl) {
+    cshEl.className = 'cluster-health-banner ' + clusterBannerSev;
+    cshEl.innerHTML = '<div class="cluster-health-title">' + clusterBannerIcon + ' ' + clusterBannerMsg + '</div>' +
+      '<div class="cluster-health-meta">' + clusterTotalsLine + '</div>';
+  }
+
+  // Per-tier table rows
+  const utilPct = (spn, maxSpn) => maxSpn > 0 ? Math.min(100, Math.round(spn / maxSpn * 100)) : 0;
+  const utilBarHtml = (spn, maxSpn, enabled) => {
+    if (!enabled) return '&mdash;';
+    const pctVal = utilPct(spn, maxSpn);
+    const barSev = pctVal > 100 ? 'bad' : pctVal >= 75 ? 'warn' : 'ok';
+    return '<div class="util-bar-wrap"><div class="util-bar-fill ' + barSev + '" style="width:' + Math.min(pctVal,100) + '%"></div></div>' +
+           '<span class="util-pct">' + pctVal + '%</span>';
+  };
+  const tierStatusHtml = (spn, maxSpn, nodeRam, enabled) => {
+    if (!enabled) return '&mdash;';
+    if (nodeRam < 4)         return '<span class="status-bad">⚠ RAM &lt; 4 GB</span>';
+    if (spn > maxSpn)        return '<span class="status-bad">⚠ Over ceiling</span>';
+    if (spn > maxSpn * 0.75) return '<span class="status-warn">⚠ High density</span>';
+    return '<span class="status-ok">✓ OK</span>';
+  };
+
+  const shardTiers = [
+    { name:'Hot',    enabled:true,     total:hotTotalShards,    npz:hotNpz,    nodeRam:hotNodeRamSnapped,    heap:hotHeap,    tnodes:hotTotalNodes,    spn:hotSPN,    maxSpn:hotMaxSpn    },
+    { name:'Warm',   enabled:isWarm,   total:warmTotalShards,   npz:warmNpz,   nodeRam:warmNodeRamSnapped,   heap:warmHeap,   tnodes:warmTotalNodes,   spn:warmSPN,   maxSpn:warmMaxSpn   },
+    { name:'Cold',   enabled:isCold,   total:coldTotalShards,   npz:coldNpz,   nodeRam:coldNodeRamSnapped,   heap:coldHeap,   tnodes:coldTotalNodes,   spn:coldSPN,   maxSpn:coldMaxSpn   },
+    { name:'Frozen', enabled:isFrozen, total:frozenTotalShards, npz:frozenNpz, nodeRam:frozenNodeRamSnapped, heap:frozenHeap, tnodes:frozenTotalNodes, spn:frozenSPN, maxSpn:frozenMaxSpn },
+  ];
+
+  el('shardBody').innerHTML = shardTiers.map(t =>
+    '<tr' + (!t.enabled ? ' class="disabled-row"' : '') + '>' +
+    '<td><strong>' + t.name + '</strong></td>' +
+    '<td>' + (t.enabled ? primaryShardsPerIndex : '&mdash;') + '</td>' +
+    '<td>' + (t.enabled ? t.total.toLocaleString() : '&mdash;') + '</td>' +
+    '<td>' + (t.enabled ? t.npz : '&mdash;') + '</td>' +
+    '<td>' + (t.enabled ? formatSize(t.nodeRam) : '&mdash;') + '</td>' +
+    '<td>' + (t.enabled ? t.heap.toFixed(1) + ' GB' : '&mdash;') + '</td>' +
+    '<td>' + (t.enabled ? t.tnodes : '&mdash;') + '</td>' +
+    '<td>' + (t.enabled ? t.spn.toLocaleString() : '&mdash;') + '</td>' +
+    '<td>' + (t.enabled ? t.maxSpn.toLocaleString() : '&mdash;') + '</td>' +
+    '<td>' + utilBarHtml(t.spn, t.maxSpn, t.enabled) + '</td>' +
+    '<td>' + tierStatusHtml(t.spn, t.maxSpn, t.nodeRam, t.enabled) + '</td>' +
+    '</tr>'
+  ).join('');
+
+  // tfoot cluster totals row
+  const sfEl = el('shardFoot');
+  if (sfEl) {
+    const totalHeapAll = (hotTotalNodes * hotHeap) +
+      (isWarm ? warmTotalNodes * warmHeap : 0) +
+      (isCold ? coldTotalNodes * coldHeap : 0) +
+      (isFrozen ? frozenTotalNodes * frozenHeap : 0);
+    const totalNodesAll = hotTotalNodes + (isWarm?warmTotalNodes:0) + (isCold?coldTotalNodes:0) + (isFrozen?frozenTotalNodes:0);
+    const totalShardSev = clusterTotalShards > clusterShardLimit ? 'bad' : clusterTotalShards > clusterShardWarnAt ? 'warn' : 'ok';
+    sfEl.innerHTML = '<tr class="total-row">' +
+      '<td><strong>Cluster Total</strong></td>' +
+      '<td>&mdash;</td>' +
+      '<td><span class="status-' + totalShardSev + '">' + clusterTotalShards.toLocaleString() + ' / ' + (clusterShardLimit >= 1000 ? Math.round(clusterShardLimit/1000) + 'k' : clusterShardLimit) + '</span></td>' +
+      '<td>&mdash;</td>' +
+      '<td>&mdash;</td>' +
+      '<td>' + totalHeapAll.toFixed(1) + ' GB</td>' +
+      '<td>' + totalNodesAll + '</td>' +
+      '<td>&mdash;</td>' +
+      '<td>&mdash;</td>' +
+      '<td><span class="util-pct">' + clusterDensity.toFixed(1) + '/GB</span></td>' +
+      '<td>' + (clusterShardOk ? '<span class="status-ok">✓ Healthy</span>' : clusterShardBad ? '<span class="status-bad">✗ Critical</span>' : '<span class="status-warn">⚠ Warning</span>') + '</td>' +
+      '</tr>';
+  }
+
+  // Recommendations panel
+  const recoEl = el('shardRecommendations');
+  if (recoEl) {
+    const issues = [];
+
+    // 1. Shard too small
+    if (actualShardSizeGB < 10) {
+      issues.push({ sev:'warn', title:'Shard size too small (' + actualShardSizeGB.toFixed(1) + ' GB)',
+        fix:'Reduce primary shard count or increase your target shard size. Aim for 20–30 GB per shard. ' +
+            'Currently: ' + primaryShardsPerIndex + ' primary × ' + indicesPerDay + ' index/day → ' + actualShardSizeGB.toFixed(1) + ' GB each.' });
+    }
+    // 2. Shard too large
+    if (actualShardSizeGB > 50) {
+      issues.push({ sev:'bad', title:'Shard size too large (' + actualShardSizeGB.toFixed(1) + ' GB)',
+        fix:'Increase primary shard count or reduce your target shard size. Aim for 20–40 GB per shard. ' +
+            'Currently: ' + primaryShardsPerIndex + ' primary × ' + indicesPerDay + ' index/day → ' + actualShardSizeGB.toFixed(1) + ' GB each.' });
+    }
+    // 3 & 4. Per-tier density checks
+    shardTiers.filter(t => t.enabled).forEach(t => {
+      const pct = t.maxSpn > 0 ? Math.round(t.spn / t.maxSpn * 100) : 0;
+      if (t.spn > t.maxSpn) {
+        issues.push({ sev:'bad', title:t.name + ' tier exceeds shard ceiling (' + t.spn.toLocaleString() + ' / ' + t.maxSpn.toLocaleString() + ' shards/node)',
+          fix:'Options: (a) Add more ' + t.name.toLowerCase() + ' nodes to spread shards, ' +
+              '(b) Increase node RAM to raise the ceiling (current heap: ' + t.heap.toFixed(1) + ' GB → ceiling: ' + t.maxSpn + '), ' +
+              '(c) Reduce retention period, or (d) Increase target shard size to reduce total shard count.' });
+      } else if (pct >= 75) {
+        issues.push({ sev:'warn', title:t.name + ' tier approaching shard ceiling (' + pct + '% of ' + t.maxSpn.toLocaleString() + ')',
+          fix:'Plan for growth: consider adding ' + t.name.toLowerCase() + ' nodes or increasing RAM. At current ingest rate you have limited headroom.' });
+      }
+    });
+    // 5 & 6. Cluster total shard limit (1,000 per non-frozen data node)
+    if (clusterTotalShards > clusterShardLimit) {
+      issues.push({ sev:'bad', title:'Cluster exceeds shard limit (' + clusterTotalShards.toLocaleString() + ' / ' + clusterShardLimit.toLocaleString() + ')',
+        fix:'Elastic 8.3+ guideline: 1,000 shards per non-frozen data node (currently ' + nonFrozenDataNodes + ' nodes × 1,000 = ' + clusterShardLimit.toLocaleString() + ' limit). ' +
+            'Actions: (a) Add more hot/warm/cold nodes, (b) Increase target shard size (fewer shards/day), ' +
+            '(c) Reduce retention periods, (d) Reduce replica counts, or (e) Split into multiple clusters.' });
+    } else if (clusterTotalShards > clusterShardWarnAt) {
+      issues.push({ sev:'warn', title:'Cluster approaching shard limit (' + clusterTotalShards.toLocaleString() + ' / ' + clusterShardLimit.toLocaleString() + ' — ' + Math.round(clusterTotalShards/clusterShardLimit*100) + '%)',
+        fix:'Approaching the per-node shard limit (' + clusterShardWarnAt.toLocaleString() + ' = 80% of ' + clusterShardLimit.toLocaleString() + '). Consider adding nodes, reducing retention, or increasing shard size before reaching capacity.' });
+    }
+    // 7. Cluster-wide density (hot + warm)
+    if (clusterDensity > 20) {
+      const neededHeapGB = Math.ceil(hotWarmTotalShards / 20);
+      const neededNodes  = Math.ceil(neededHeapGB / Math.max(hotHeap, 1));
+      issues.push({ sev:'bad', title:'Hot+Warm heap density exceeds 20 shards/GB (' + clusterDensity.toFixed(1) + ')',
+        fix:'Elastic recommends ≤ 20 shards per GB of JVM heap across hot+warm tiers. ' +
+            'Current: ' + hotWarmTotalShards.toLocaleString() + ' shards ÷ ' + hotWarmTotalHeap.toFixed(1) + ' GB heap = ' + clusterDensity.toFixed(1) + '. ' +
+            'To fix: you need ≥ ' + neededHeapGB + ' GB total hot+warm heap (≈ ' + neededNodes + ' additional nodes at current RAM), ' +
+            'or reduce shard count to ≤ ' + Math.floor(hotWarmTotalHeap * 20).toLocaleString() + ' shards.' });
+    } else if (clusterDensity > 15) {
+      issues.push({ sev:'warn', title:'Hot+Warm density elevated (' + clusterDensity.toFixed(1) + ' shards/GB, limit 20)',
+        fix:'Density is in the caution zone. Monitor closely and plan to add hot/warm nodes or increase RAM if ingest grows.' });
+    }
+
+    if (issues.length === 0) {
+      recoEl.innerHTML = '<ul class="reco-list"><li class="reco-item ok">' +
+        '<span class="reco-icon">✓</span>' +
+        '<div><div class="reco-title">All shard checks passed</div>' +
+        '<div class="reco-fix">Your shard configuration is within Elastic best-practice guidelines.</div></div></li></ul>';
+    } else {
+      recoEl.innerHTML = '<ul class="reco-list">' +
+        issues.map(i =>
+          '<li class="reco-item ' + i.sev + '">' +
+          '<span class="reco-icon">' + (i.sev==='bad'?'✗':'⚠') + '</span>' +
+          '<div><div class="reco-title">' + i.title + '</div>' +
+          '<div class="reco-fix">' + i.fix + '</div></div></li>'
+        ).join('') +
+        '</ul>';
+    }
+  }
+
+  // ── Summary Table
+  const masterNodes = parseInt(el('masterNodes').value)||0;
+  const coordNodes  = parseInt(el('coordNodes').value)||0;
+  const mlNodes     = parseInt(el('mlNodes').value)||0;
+  const entNodes    = parseInt(el('entNodes').value)||0;
+
+  const rows = [
+    { name:'Hot',          ram:hotRam,         storage:hotStorage,  days:hotDays,    azs:hotAzs,      lbl:'Zone', en:true      },
+    { name:'Warm',         ram:warmRam,        storage:warmStorage, days:warmDays,   azs:warmAzs,     lbl:'Zone', en:isWarm    },
+    { name:'Cold',         ram:coldRam,        storage:coldStorage, days:coldDays,   azs:coldAzs,     lbl:'Zone', en:isCold    },
+    { name:'Frozen',       ram:frozenRam,      storage:frozenLocal, days:frozenDays, azs:frozenAzs,   lbl:'Zone', en:isFrozen  },
+    { name:'Kibana',       ram:kibanaRam,      storage:0,           days:null,       azs:kibAzs,      lbl:'Node', en:true      },
+    { name:'Master',       ram:masterRamTotal, storage:0,           days:null,       azs:masterNodes, lbl:'Node', en:isMaster  },
+    { name:'Coordinating', ram:coordRamTotal,  storage:0,           days:null,       azs:coordNodes,  lbl:'Node', en:isCoord   },
+    { name:'ML',           ram:mlRamTotal,     storage:0,           days:null,       azs:mlNodes,     lbl:'Node', en:isMl      },
+    { name:'Ent. Search',  ram:entRamTotal,    storage:0,           days:null,       azs:entNodes,    lbl:'Node', en:isEnt     },
+  ];
+  el('summaryBody').innerHTML =
+    rows.map(r => '<tr' + (!r.en?'class="disabled-row"':'') + '>' +
+      '<td>' + r.name + (!r.en?' (disabled)':'') + '</td>' +
+      '<td>' + (r.en ? formatSize(r.ram) : '—') + '</td>' +
+      '<td>' + (r.en && r.storage > 0 ? formatSize(r.storage) : '—') + '</td>' +
+      '<td>' + (r.days!==null ? (r.en ? r.days+' days' : '—') : 'N/A') + '</td>' +
+      '<td>' + (r.en ? zoneText(r.azs, r.lbl) : '—') + '</td>' +
+      '</tr>').join('') +
+    '<tr class="total-row"><td>Total (local)</td><td>' + formatSize(totalRam) + '</td><td>' + formatSize(totalStorage) + '</td><td>' + totalRetDays + ' days</td><td>—</td></tr>' +
+    '<tr class="total-row"><td>Object Store</td><td>—</td><td>' + formatSize(objectStoreGB) + '</td><td>cold + frozen + ' + snapshotRetentionDays + 'd snaps</td><td>1 copy</td></tr>';
+
+  // Store for export
+  window._lastCalc = { rows, totalRam, totalStorage, objectStoreGB, totalRetDays, snapshotRetentionDays,
+    client: el('clientName').value || 'New Client',
+    ingest, hotDays, warmDays, coldDays, frozenDays,
+    hotRam, warmRam, coldRam, frozenRam, kibanaRam, infraRam,
+    hotStorage, warmStorage, coldStorage:coldLocal, frozenStorage:frozenLocal };
+}
+
+// ─── Copy summary ──────────────────────────────────────────────────────
+function copySummaryText() {
+  const rows = document.querySelectorAll('#summaryBody tr');
+  const cols = [16, 10, 12, 14, 12];
+  const pad = (s, w) => String(s).padEnd(w);
+  const headers = ['Component','RAM','Storage','Retention','Nodes/Zones'];
+  let text = (el('clientName').value ? 'ECE Sizing: ' + el('clientName').value + '\n' : '') +
+    headers.map((h,i) => pad(h,cols[i])).join('') + '\n' +
+    cols.map(w => '-'.repeat(w)).join('') + '\n';
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    text += Array.from(cells).map((td,i) => pad(td.innerText, cols[i])).join('') + '\n';
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('[onclick="copySummaryText()"]');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+    setTimeout(() => btn.innerHTML = orig, 2000);
+  }).catch(() => prompt('Copy:', text));
+}
+
+// ─── Export JSON ───────────────────────────────────────────────────────
+function exportJson() {
+  if (!window._lastCalc) return;
+  const data = window._lastCalc;
+  // Capture every input field so the JSON can be fully reimported
+  const inputs = {
+    client:               el('clientName').value,
+    daily_ingest_gb:      parseFloat(el('ingestNum').value) || 0,
+    retention_days: {
+      hot:    parseFloat(el('hotNum').value)    || 0,
+      warm:   parseFloat(el('warmNum').value)   || 0,
+      cold:   parseFloat(el('coldNum').value)   || 0,
+      frozen: parseFloat(el('frozenNum').value) || 0,
+    },
+    tiers_enabled: {
+      warm:   el('enableWarm').checked,
+      cold:   el('enableCold').checked,
+      frozen: el('enableFrozen').checked,
+    },
+    availability_zones: {
+      hot:    parseFloat(el('hotAzs').value)    || 1,
+      warm:   parseFloat(el('warmAzs').value)   || 1,
+      cold:   parseFloat(el('coldAzs').value)   || 1,
+      frozen: parseFloat(el('frozenAzs').value) || 1,
+      kibana: parseFloat(el('kibAzs').value)    || 1,
+    },
+    replicas: {
+      hot:    parseFloat(el('hotReplicas').value)  || 0,
+      warm:   parseFloat(el('warmReplicas').value) || 0,
+      cold:   parseFloat(el('coldReplicas').value) || 0,
+    },
+    nodes_per_zone: {
+      hot:    parseFloat(el('hotNpz').value)    || 1,
+      warm:   parseFloat(el('warmNpz').value)   || 1,
+      cold:   parseFloat(el('coldNpz').value)   || 1,
+      frozen: parseFloat(el('frozenNpz').value) || 1,
+    },
+    storage_ratios: {
+      hot:    parseFloat(el('hotRatio').value)    || 1,
+      warm:   parseFloat(el('warmRatio').value)   || 1,
+      cold:   parseFloat(el('coldRatio').value)   || 1,
+      frozen: parseFloat(el('frozenRatio').value) || 1,
+    },
+    kibana_ram_gb:        parseFloat(el('kibanaRam').value) || 0,
+    frozen_cache_pct:     parseFloat(el('frozenCache').value) || 10,
+    overhead_hot:         parseFloat(el('hotOverhead').value)  || 1.5,
+    overhead_warm:        parseFloat(el('warmOverhead').value) || 1.25,
+    overhead_cold_frozen: parseFloat(el('coldOverhead').value) || 1.1,
+    snap_index_type:      el('snapIndexType') ? el('snapIndexType').value : 'rolling',
+    hot_vcpu_per_node:    parseInt(el('hotVcpu').value) || 8,
+    allocator_count:      parseInt(el('allocatorCount').value) || 3,
+    allocator_ram_per_gb: parseInt(el('allocatorRam').value) || 256,
+    watermark_enabled:    el('enableWatermark').checked,
+    watermark_pct:        parseFloat(el('watermarkPct').value) || 15,
+    target_shard_size_gb: parseFloat(el('targetShardSize').value) || 30,
+    system_shards:        parseFloat(el('systemShards').value) || 200,
+    indices_per_day:      parseFloat(el('indicesPerDay').value) || 1,
+    snapshot_retention_days: parseFloat(el('snapshotRetentionDays').value) || 30,
+    master: {
+      auto:    el('masterAuto').checked,
+      enabled: el('enableMaster').checked,
+      ram_gb:  parseFloat(el('masterRam').value)   || 0,
+      nodes:   parseFloat(el('masterNodes').value) || 0,
+    },
+    coordinating: {
+      enabled: el('enableCoord').checked,
+      ram_gb:  parseFloat(el('coordRam').value)   || 0,
+      nodes:   parseFloat(el('coordNodes').value) || 0,
+    },
+    ml: {
+      enabled: el('enableMl').checked,
+      ram_gb:  parseFloat(el('mlRam').value)   || 0,
+      nodes:   parseFloat(el('mlNodes').value) || 0,
+    },
+    enterprise_search: {
+      enabled: el('enableEnt').checked,
+      ram_gb:  parseFloat(el('entRam').value)   || 0,
+      nodes:   parseFloat(el('entNodes').value) || 0,
+    },
+  };
+  const json = JSON.stringify({
+    meta: { tool: 'ECE Sizing Calculator v9', version: '9', generated: new Date().toISOString() },
+    inputs,
+    totals: {
+      ram_gb:              Math.ceil(data.totalRam),
+      local_storage_gb:    Math.ceil(data.totalStorage),
+      object_store_gb:     Math.ceil(data.objectStoreGB),
+      total_retention_days: data.totalRetDays,
+    },
+  }, null, 2);
+  const a = document.createElement('a');
+  a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+  a.download = ((inputs.client || 'ece_sizing').replace(/[^a-z0-9]/gi,'_').toLowerCase()) + '_sizing.json';
+  a.click();
+}
+
+// ─── Import JSON ───────────────────────────────────────────────────────
+function triggerImport() {
+  const fi = el('importFileInput');
+  fi.value = '';          // reset so same file can be re-imported
+  fi.click();
+}
+
+function importJson(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    let data;
+    try {
+      data = JSON.parse(e.target.result);
+    } catch(err) {
+      showImportError('Invalid JSON — could not parse file.');
+      return;
+    }
+    // Support both flat (legacy) and nested (v9) shapes
+    const inp = data.inputs || data;
+    if (!inp || typeof inp.daily_ingest_gb === 'undefined') {
+      showImportError('Unrecognized format — missing required "inputs" block.');
+      return;
+    }
+
+    // Helper setters
+    const setVal   = (id, val) => { if (val !== undefined && val !== null && el(id)) el(id).value = val; };
+    const setCheck = (id, val) => { if (val !== undefined && val !== null && el(id)) el(id).checked = !!val; };
+
+    // Client name
+    if (inp.client) { el('clientName').value = inp.client; updateClientDisplay(); }
+
+    // Ingest
+    setVal('ingestNum',    inp.daily_ingest_gb);
+    setVal('ingestSlider', inp.daily_ingest_gb);
+
+    // Retention days
+    const ret = inp.retention_days || {};
+    setVal('hotNum',    ret.hot    ?? inp.hot_days);    setVal('hotSlider',    ret.hot    ?? inp.hot_days);
+    setVal('warmNum',   ret.warm   ?? inp.warm_days);   setVal('warmSlider',   ret.warm   ?? inp.warm_days);
+    setVal('coldNum',   ret.cold   ?? inp.cold_days);   setVal('coldSlider',   ret.cold   ?? inp.cold_days);
+    setVal('frozenNum', ret.frozen ?? inp.frozen_days); setVal('frozenSlider', ret.frozen ?? inp.frozen_days);
+
+    // Tier enables
+    const te = inp.tiers_enabled || {};
+    setCheck('enableWarm',   te.warm   ?? inp.enable_warm);
+    setCheck('enableCold',   te.cold   ?? inp.enable_cold);
+    setCheck('enableFrozen', te.frozen ?? inp.enable_frozen);
+
+    // AZs
+    const az = inp.availability_zones || {};
+    setVal('hotAzs',    az.hot    ?? inp.hot_azs);    setVal('warmAzs',   az.warm   ?? inp.warm_azs);
+    setVal('coldAzs',   az.cold   ?? inp.cold_azs);   setVal('frozenAzs', az.frozen ?? inp.frozen_azs);
+    setVal('kibAzs',    az.kibana ?? inp.kib_azs);
+
+    // Replicas
+    const rep = inp.replicas || {};
+    setVal('hotReplicas',  rep.hot  ?? inp.hot_replicas);
+    setVal('warmReplicas', rep.warm ?? inp.warm_replicas);
+    setVal('coldReplicas', rep.cold ?? inp.cold_replicas);
+
+    // Nodes per zone
+    const npz = inp.nodes_per_zone || {};
+    setVal('hotNpz',    npz.hot    ?? inp.hot_npz);
+    setVal('warmNpz',   npz.warm   ?? inp.warm_npz);
+    setVal('coldNpz',   npz.cold   ?? inp.cold_npz);
+    setVal('frozenNpz', npz.frozen ?? inp.frozen_npz);
+
+    // Storage ratios
+    const sr = inp.storage_ratios || {};
+    setVal('hotRatio',    sr.hot    ?? inp.hot_ratio);
+    setVal('warmRatio',   sr.warm   ?? inp.warm_ratio);
+    setVal('coldRatio',   sr.cold   ?? inp.cold_ratio);
+    setVal('frozenRatio', sr.frozen ?? inp.frozen_ratio);
+
+    // Kibana
+    setVal('kibanaRam',  inp.kibana_ram_gb ?? inp.kib_ram);
+    setVal('frozenCache', inp.frozen_cache_pct ?? inp.frozen_cache);
+
+    // Advanced — per-tier overheads and new fields
+    setVal('hotOverhead',  inp.overhead_hot          ?? inp.overhead_multiplier ?? inp.overhead ?? 1.5);
+    setVal('warmOverhead', inp.overhead_warm         ?? 1.25);
+    setVal('coldOverhead', inp.overhead_cold_frozen  ?? 1.1);
+    if (inp.snap_index_type && el('snapIndexType')) el('snapIndexType').value = inp.snap_index_type;
+    setVal('hotVcpu',         inp.hot_vcpu_per_node  ?? 8);
+    setVal('allocatorCount',  inp.allocator_count    ?? 3);
+    setVal('allocatorRam',    inp.allocator_ram_per_gb ?? 256);
+    setCheck('enableWatermark',     inp.watermark_enabled    ?? inp.wm_on);
+    setVal('watermarkPct',          inp.watermark_pct        ?? inp.wm_pct);
+    setVal('targetShardSize',       inp.target_shard_size_gb ?? inp.shard_size);
+    setVal('systemShards',          inp.system_shards        ?? inp.sys_shards);
+    setVal('indicesPerDay',         inp.indices_per_day      ?? inp.ipd);
+    setVal('snapshotRetentionDays', inp.snapshot_retention_days ?? inp.snap_days);
+
+    // Master
+    const m = inp.master || {};
+    setCheck('masterAuto',    m.auto    ?? inp.master_auto);
+    setCheck('enableMaster',  m.enabled ?? inp.master_on);
+    setVal('masterRam',       m.ram_gb  ?? inp.master_ram);
+    setVal('masterNodes',     m.nodes   ?? inp.master_nodes);
+
+    // Coordinating
+    const c = inp.coordinating || {};
+    setCheck('enableCoord', c.enabled ?? inp.coord_on);
+    setVal('coordRam',      c.ram_gb  ?? inp.coord_ram);
+    setVal('coordNodes',    c.nodes   ?? inp.coord_nodes);
+
+    // ML
+    const ml = inp.ml || {};
+    setCheck('enableMl', ml.enabled ?? inp.ml_on);
+    setVal('mlRam',      ml.ram_gb  ?? inp.ml_ram);
+    setVal('mlNodes',    ml.nodes   ?? inp.ml_nodes);
+
+    // Enterprise Search
+    const ent = inp.enterprise_search || {};
+    setCheck('enableEnt', ent.enabled ?? inp.ent_on);
+    setVal('entRam',      ent.ram_gb  ?? inp.ent_ram);
+    setVal('entNodes',    ent.nodes   ?? inp.ent_nodes);
+
+    // Recalculate
+    calculate();
+
+    // Feedback on the button
+    const btn = el('importBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Imported!';
+    btn.style.background = 'var(--c-ok)';
+    btn.style.borderColor = 'var(--c-ok)';
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.style.background = '';
+      btn.style.borderColor = '';
+    }, 2500);
+
+    // Scroll to results
+    const results = el('s-results');
+    if (results) results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  reader.onerror = () => showImportError('Could not read the file.');
+  reader.readAsText(file);
+}
+
+function showImportError(msg) {
+  const btn = el('importBtn');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> ' + msg;
+  btn.style.background = 'var(--c-bad)';
+  btn.style.borderColor = 'var(--c-bad)';
+  setTimeout(() => {
+    btn.innerHTML = orig;
+    btn.style.background = '';
+    btn.style.borderColor = '';
+  }, 4000);
+}
+
+// ─── Tooltip engine ────────────────────────────────────────────────────
+// Single floating div repositioned on each hover so it never clips the edge
+(function () {
+  const popup = document.createElement('div');
+  popup.id = 'tip-popup';
+  document.body.appendChild(popup);
+
+  const PAD = 10; // min distance from viewport edge
+  const TIP_W = 240;
+  const GAP   = 8;  // gap between badge and popup
+
+  function show(badge) {
+    const text = badge.getAttribute('data-tip');
+    if (!text) return;
+    popup.textContent = text;
+    popup.style.display = 'block';
+
+    const rect = badge.getBoundingClientRect();
+    const tipH = popup.offsetHeight;
+    const vw   = window.innerWidth;
+    const vh   = window.innerHeight;
+
+    // Horizontal: centre on badge, then clamp to viewport
+    let left = rect.left + rect.width / 2 - TIP_W / 2;
+    left = Math.max(PAD, Math.min(left, vw - TIP_W - PAD));
+
+    // Vertical: prefer above; if not enough room, show below
+    let top = rect.top - tipH - GAP;
+    if (top < PAD) top = rect.bottom + GAP;
+    // If still off bottom, push up
+    if (top + tipH > vh - PAD) top = vh - tipH - PAD;
+
+    popup.style.left = left + 'px';
+    popup.style.top  = top  + 'px';
+  }
+
+  function hide() {
+    popup.style.display = 'none';
+  }
+
+  document.addEventListener('mouseover', function (e) {
+    const badge = e.target.closest('.tip');
+    if (badge) show(badge);
+  });
+  document.addEventListener('mouseout', function (e) {
+    const badge = e.target.closest('.tip');
+    if (badge) hide();
+  });
+  // Also hide on scroll/resize so stale popups don't linger
+  document.addEventListener('scroll', hide, true);
+  window.addEventListener('resize', hide);
+})();
+
+// ─── Init ──────────────────────────────────────────────────────────────
+loadFromUrl();
+calculate();
+</script>
+</body>
+</html>
