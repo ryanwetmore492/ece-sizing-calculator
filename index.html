@@ -1121,10 +1121,6 @@
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-ghost" onclick="shareUrl()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        <span>Copy Link</span>
-      </button>
       <button class="btn btn-ghost" onclick="window.print()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
         <span>Print</span>
@@ -2179,41 +2175,6 @@ function onRolloverModeChange() {
   if (el('ilmMaxDocsField')) el('ilmMaxDocsField').style.display = isSz ? '' : 'none';
   if (el('ilmHintField'))   el('ilmHintField').style.display    = 'none'; // calculate() will show if needed
   calculate();
-}
-
-function shareUrl() {
-  const p = new URLSearchParams({
-    v:'9', client: el('clientName').value,
-    ingest:el('ingestNum').value,
-    hotDays:el('hotNum').value, warmDays:el('warmNum').value, coldDays:el('coldNum').value, frozenDays:el('frozenNum').value,
-    enableWarm:el('enableWarm').checked?1:0, enableCold:el('enableCold').checked?1:0, enableFrozen:el('enableFrozen').checked?1:0,
-    hotAzs:el('hotAzs').value, warmAzs:el('warmAzs').value, coldAzs:el('coldAzs').value, frozenAzs:el('frozenAzs').value,
-    hotReplicas:el('hotReplicas').value, warmReplicas:el('warmReplicas').value, coldReplicas:el('coldReplicas').value,
-    kibRam:el('kibanaRam').value, kibAzs:el('kibAzs').value,
-    hotRatio:el('hotRatio').value, warmRatio:el('warmRatio').value, coldRatio:el('coldRatio').value, frozenRatio:el('frozenRatio').value,
-    hotOvhd:el('hotOverhead').value, warmOvhd:el('warmOverhead').value, coldOvhd:el('coldOverhead').value,
-    wmOn:el('enableWatermark').checked?1:0, wmPct:el('watermarkPct').value,
-    shardSize:el('targetShardSize').value, sysShards:el('systemShards').value,
-    ipd:el('indicesPerDay').value, snapDays:el('snapshotRetentionDays').value,
-    ilmMode:el('ilmRolloverMode')?el('ilmRolloverMode').value:'age',
-    ilmMaxSize:el('ilmMaxIndexSizeGb')?el('ilmMaxIndexSizeGb').value:50,
-    ilmMaxDocs:el('ilmMaxDocsMillion')?el('ilmMaxDocsMillion').value:0,
-    snapType:el('snapIndexType')?el('snapIndexType').value:'rolling',
-    hotVcpu:el('hotVcpu').value, allocCnt:el('allocatorCount').value, allocRam:el('allocatorRam').value,
-    hotNpz:el('hotNpz').value, warmNpz:el('warmNpz').value, coldNpz:el('coldNpz').value, frozenNpz:el('frozenNpz').value, frozenCache:el('frozenCache').value,
-    masterAuto:el('masterAuto').checked?1:0, masterOn:el('enableMaster').checked?1:0,
-    masterRam:el('masterRam').value, masterNodes:el('masterNodes').value,
-    coordOn:el('enableCoord').checked?1:0, coordRam:el('coordRam').value, coordNodes:el('coordNodes').value,
-    mlOn:el('enableMl').checked?1:0, mlRam:el('mlRam').value, mlNodes:el('mlNodes').value,
-    entOn:el('enableEnt').checked?1:0, entRam:el('entRam').value, entNodes:el('entNodes').value,
-  });
-  const url = location.href.split('?')[0] + '?' + p.toString();
-  navigator.clipboard.writeText(url).then(() => {
-    const btn = document.querySelector('[onclick="shareUrl()"]');
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Copied!</span>';
-    setTimeout(() => btn.innerHTML = orig, 2000);
-  }).catch(() => prompt('Copy this link:', url));
 }
 
 // ─── Load from URL ─────────────────────────────────────────────────────
