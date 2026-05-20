@@ -2377,6 +2377,7 @@ function onRolloverModeChange() {
 function loadFromUrl() {
   const p = new URLSearchParams(location.search);
   if (!p.has('ingest')) return;
+  _dirty = true; // URL params present — treat as user-initiated load
   const set = (id, key) => { const v = p.get(key); if (v !== null) el(id).value = v; };
   const setCheck = (id, key) => { const v = p.get(key); if (v !== null) el(id).checked = v === '1'; };
   if (p.get('client')) { el('clientName').value = p.get('client'); updateClientDisplay(); }
@@ -2681,7 +2682,7 @@ function calculate() {
   // Fix 4: Frozen cache sanity check
   const fcEl = el('frozenCacheHealth');
   if (fcEl) {
-    if (isFrozen && frozenData > 0 && frozenLocal > 0) {
+    if (_dirty && isFrozen && frozenData > 0 && frozenLocal > 0) {
       const cachePct = (frozenLocal / frozenData) * 100;
       const cacheSev = cachePct < 5 ? 'bad' : cachePct < 10 ? 'warn' : 'ok';
       const cacheIcon = cachePct < 5 ? '✗' : cachePct < 10 ? '⚠' : '✓';
@@ -2709,7 +2710,7 @@ function calculate() {
     const hotTotalNodesForCPU = hotAzs * hotNpz;
     const neededVcpuPerNode   = hotTotalNodesForCPU > 0 ? neededVcpuTotal / hotTotalNodesForCPU : neededVcpuTotal;
     const cpuSev = hotVcpu < neededVcpuPerNode * 0.5 ? 'bad' : hotVcpu < neededVcpuPerNode ? 'warn' : 'ok';
-    if (hotTotalNodesForCPU > 0) {
+    if (_dirty && hotTotalNodesForCPU > 0) {
       cpuEl.style.display = 'block';
       cpuEl.className = 'cluster-health-banner ' + cpuSev;
       const cpuIcon = cpuSev === 'bad' ? '✗' : cpuSev === 'warn' ? '⚠' : '✓';
@@ -2873,9 +2874,14 @@ function calculate() {
     ' &nbsp;·&nbsp; Hot+Warm heap density: <strong>' + clusterDensity.toFixed(1) + ' / 20 shards/GB-heap</strong>';
   const cshEl = el('clusterShardHealth');
   if (cshEl) {
-    cshEl.className = 'cluster-health-banner ' + clusterBannerSev;
-    cshEl.innerHTML = '<div class="cluster-health-title">' + clusterBannerIcon + ' ' + clusterBannerMsg + '</div>' +
-      '<div class="cluster-health-meta">' + clusterTotalsLine + '</div>';
+    if (_dirty) {
+      cshEl.className = 'cluster-health-banner ' + clusterBannerSev;
+      cshEl.innerHTML = '<div class="cluster-health-title">' + clusterBannerIcon + ' ' + clusterBannerMsg + '</div>' +
+        '<div class="cluster-health-meta">' + clusterTotalsLine + '</div>';
+    } else {
+      cshEl.className = '';
+      cshEl.innerHTML = '';
+    }
   }
 
   // Per-tier table rows
@@ -3258,6 +3264,7 @@ function importJson(evt) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(e) {
+    _dirty = true; // user explicitly imported a file — enable health banners
     let data;
     try {
       data = JSON.parse(e.target.result);
@@ -3457,6 +3464,11 @@ function showImportError(msg) {
 })();
 
 // ─── Init ──────────────────────────────────────────────────────────────
+// Suppress health banners until the user has interacted with the form at least once.
+// Prevents stale warnings from showing on a fresh default load.
+let _dirty = false;
+document.addEventListener('input',  () => { _dirty = true; }, { once: true });
+document.addEventListener('change', () => { _dirty = true; }, { once: true });
 loadFromUrl();
 calculate();
 
