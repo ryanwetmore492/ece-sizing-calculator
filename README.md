@@ -21,8 +21,11 @@ The ECE Sizing Calculator takes your data characteristics (ingest rate, retentio
 - **Allocator overhead** — Models 12 GB ECE control plane overhead per allocator host
 - **CPU ingest hint** — Planning heuristic for hot tier vCPU adequacy
 - **Frozen tier cache health** — Validates cache % against Elastic's 5–10% guidance
-- **Export / Import JSON** — Full configuration round-trip
-- **Share URL** — Encodes configuration in URL parameters for quick handoff
+- **Compression ratio input** — Adjustable data compression factor (default 2×); all storage and shard formulas use post-compression on-disk volume
+- **Replica-aware storage breakdown** — Per-tier table separating primary data, replica overhead, and total on-node storage with watermark applied
+- **Print / PDF export** — Styled print layout showing KPIs, node breakdown, and storage breakdown; hides all inputs and UI chrome
+- **Export / Import JSON** — Full configuration round-trip including compression ratio
+- **Compare Deployment** — Enter actual deployment values and diff against calculator recommendations
 - **Dark / Light mode** — Respects system preference
 - **Version badge** — Visible version number in header
 
@@ -60,6 +63,8 @@ All formulas are documented in the [ECE Sizing Calculator User Guide](./ECE_Sizi
 
 | Version | Changes |
 |---|---|
+| v1.0.11 | Compression ratio input (Advanced); replica-aware storage breakdown table in Results; full print/PDF layout; compression_ratio field added to Export/Import JSON and Reset Defaults |
+| v1.0.10 | Expedient Optimized preset cold ratio updated (160→200); Compare Deployment panel with per-tier diff table, status pills, and Export Comparison JSON; removed Share URL/Copy Link |
 | v1.0.9 | Fixed coldRatio default (1500→160), frozenRatio (8500→1500), ECE instance sizes ({15,29,58,60}→{16,32,64}), ECE control plane overhead (6→12 GB), shard ceiling model (20/GB-heap→1,000/node), cluster shard limit (fixed 50k→1,000×nodes); tooltip and heuristic caveats added |
 | v1.0.8 | ILM rollover toggle (age-based vs size-based), active hot indices hint |
 | v1.0.7 | Infrastructure defaults updated to match Expedient ECE environment (14 allocators, 1412 GB RAM) |
@@ -76,7 +81,7 @@ All formulas are documented in the [ECE Sizing Calculator User Guide](./ECE_Sizi
 | File | Description |
 |---|---|
 | `index.html` | Single-file application — all HTML, CSS, and JS |
-| `ECE_Sizing_Calculator_User_Guide.pdf` | 9-section client-facing user guide with formula reference and Elastic source citations |
+| `ECE_Sizing_Calculator_User_Guide.pdf` | 10-section client-facing user guide with formula reference and Elastic source citations |
 | `README.md` | This file |
 
 ## License
