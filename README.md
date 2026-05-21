@@ -57,12 +57,12 @@ All formulas are documented in the [ECE Sizing Calculator User Guide](./ECE_Sizi
 
 | Formula | Source |
 |---|---|
-| RAM:storage ratios (hot 1:30, warm/cold 1:160, frozen 1:1500) | [Elastic hardware recommendations](https://www.elastic.co/guide/en/cloud/current/ec-hardware.html) |
-| ECE instance sizes (1,2,4,8,16,32,64 GB) | [ECE instance configurations](https://www.elastic.co/guide/en/cloud-enterprise/current/ece-instance-configurations.html) |
-| ECE control plane overhead (12 GB/allocator) | [ECE allocator planning](https://www.elastic.co/guide/en/cloud-enterprise/current/ece-allocators.html) |
+| RAM:storage ratios (hot 1:30, warm/cold 1:160, frozen 1:1500) | [ECE hardware prerequisites](https://www.elastic.co/docs/deploy-manage/deploy/cloud-enterprise/ece-hardware-prereq) |
+| ECE instance sizes (1,2,4,8,16,32,64 GB) | [Default instance configurations](https://www.elastic.co/docs/deploy-manage/deploy/cloud-enterprise/ece-configuring-ece-instance-configurations-default) |
+| ECE control plane overhead (12 GB/allocator) | [ECE hardware prerequisites](https://www.elastic.co/docs/deploy-manage/deploy/cloud-enterprise/ece-hardware-prereq) |
 | Target shard size (10–50 GB) | [Size your shards](https://www.elastic.co/guide/en/elasticsearch/reference/current/size-your-shards.html) |
 | Shard ceiling (1,000/node) | [cluster.max_shards_per_node](https://www.elastic.co/guide/en/elasticsearch/reference/current/misc-cluster-settings.html#cluster-max-shards-per-node) |
-| Disk watermark headroom (15%) | [Disk-based shard allocation](https://www.elastic.co/guide/en/elasticsearch/reference/current/disk-usage-watermark.html) |
+| Disk watermark headroom (15%) | [Disk-based shard allocation](https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-cluster.html#disk-based-shard-allocation) |
 | JVM heap cap (31 GB) | [Heap sizing](https://www.elastic.co/guide/en/elasticsearch/reference/current/advanced-configuration.html#set-jvm-heap-size) |
 | Frozen cache guidance (5–10%) | [Frozen tier](https://www.elastic.co/guide/en/elasticsearch/reference/current/data-tiers.html#frozen-tier) |
 
