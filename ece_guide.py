@@ -884,16 +884,16 @@ ref_sections = [
         ("Elastic hardware recommendations",
          "Elastic's official hardware sizing reference for hot, warm, cold, and frozen tiers. "
          "Source for RAM:storage ratios (hot 1:30, warm 1:160, frozen 1:1500) and tier hardware profiles.",
-         "https://www.elastic.co/guide/en/cloud/current/ec-hardware.html"),
+         "https://www.elastic.co/docs/deploy-manage/deploy/cloud-enterprise/ece-hardware-prereq"),
         ("Size your deployment",
          "Elastic Cloud sizing guide covering RAM:storage ratios, node sizing, and tier recommendations.",
          "https://www.elastic.co/guide/en/cloud/current/ec-customize-deployment.html"),
         ("ECE allocator planning",
          "ECE documentation specifying 12 GB of ECE control plane overhead per allocator host.",
-         "https://www.elastic.co/guide/en/cloud-enterprise/current/ece-allocators.html"),
+         "https://www.elastic.co/docs/deploy-manage/deploy/cloud-enterprise/ece-hardware-prereq"),
         ("ECE instance configurations",
          "Reference for official ECE data.default instance sizes: 1, 2, 4, 8, 16, 32, 64 GB.",
-         "https://www.elastic.co/guide/en/cloud-enterprise/current/ece-instance-configurations.html"),
+         "https://www.elastic.co/docs/deploy-manage/deploy/cloud-enterprise/ece-configuring-ece-instance-configurations-default"),
     ]),
     ("Shard Management", [
         ("Size your shards",
@@ -913,7 +913,7 @@ ref_sections = [
         ("Disk-based shard allocation",
          "Documents Elasticsearch's disk watermark defaults: low 85%, high 90%, flood 95%. "
          "Source for the 15% watermark headroom buffer used in storage calculations.",
-         "https://www.elastic.co/guide/en/elasticsearch/reference/current/disk-usage-watermark.html"),
+         "https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-cluster.html#disk-based-shard-allocation"),
         ("Heap sizing and JVM",
          "Elastic recommendation to cap JVM heap at 31 GB to stay below the compressed ordinary "
          "object pointer (compressed-oops) threshold used in shard ceiling calculations.",
@@ -921,7 +921,7 @@ ref_sections = [
         ("Dedicated master nodes",
          "Elastic guidance on when to use dedicated master nodes and how to size them (4/8/16 GB). "
          "Source for the auto-master RAM scaling thresholds.",
-         "https://www.elastic.co/guide/en/elasticsearch/reference/current/master-election.html"),
+         "https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-discovery.html"),
     ]),
     ("Searchable Snapshots & Frozen Tier", [
         ("Searchable snapshots overview",
