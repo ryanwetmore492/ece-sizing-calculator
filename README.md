@@ -12,22 +12,29 @@ The ECE Sizing Calculator takes your data characteristics (ingest rate, retentio
 
 ## Features
 
-- **Use case presets** — SIEM, APM, Security Analytics, Enterprise Search, Custom
-- **Architecture presets** — Elastic Standard (3-tier HA), Expedient Optimized, Minimal (dev/test)
-- **Multi-tier sizing** — Hot / Warm / Cold / Frozen tiers with per-tier RAM:storage ratios
-- **ILM rollover modeling** — Age-based and size-based rollover conditions
-- **Shard model** — Per-tier shard ceilings (1,000/node hard limit, ES 8.3+), cluster-wide health banner, actionable recommendations
+### Inputs & Presets
+- **Client name** — Free-text label shown in the results header and included in exported filenames
+- **Use case presets** — SIEM / Logs, APM / Observability, Security Analytics, Enterprise Search, Custom; each sets sensible tier retention and replica defaults
+- **Architecture presets** — Elastic Best Practices (3-tier HA), Expedient (Dense), Minimal / Dev; each sets node sizing and ratio defaults
+- **Multi-tier sizing** — Hot / Warm / Cold / Frozen tiers with independent retention, replica count, and RAM:storage ratios
+- **ILM rollover modeling** — Age-based and size-based rollover conditions; size-based models multiple simultaneously active indices
+- **Compression ratio** — Adjustable data compression factor (default 2×, range 1–20×); all storage and shard formulas use post-compression on-disk volume
+
+### Results & Analysis
+- **KPI cards** — Total RAM, Local Storage, and Object Store (cold + frozen + snapshots) at a glance
+- **Node breakdown table** — Per-component node count, RAM per node, total RAM, and storage contribution
+- **Replica-aware storage breakdown** — Per-tier table separating primary data, replica overhead, and watermark-adjusted total on-node storage
+- **Shard model** — Per-tier shard counts and ceilings (1,000/node hard limit, ES 8.3+), utilization bars, cluster-wide health banner, and actionable recommendations
 - **ECE instance snapping** — Automatically snaps node RAM to valid ECE `data.default` sizes (1, 2, 4, 8, 16, 32, 64 GB)
-- **Allocator overhead** — Models 12 GB ECE control plane overhead per allocator host
-- **CPU ingest hint** — Planning heuristic for hot tier vCPU adequacy
-- **Frozen tier cache health** — Validates cache % against Elastic's 5–10% guidance
-- **Compression ratio input** — Adjustable data compression factor (default 2×); all storage and shard formulas use post-compression on-disk volume
-- **Replica-aware storage breakdown** — Per-tier table separating primary data, replica overhead, and total on-node storage with watermark applied
-- **Print / PDF export** — Styled print layout showing KPIs, node breakdown, and storage breakdown; hides all inputs and UI chrome
-- **Export / Import JSON** — Full configuration round-trip including compression ratio
-- **Compare Deployment** — Enter actual deployment values and diff against calculator recommendations
-- **Dark / Light mode** — Respects system preference
-- **Version badge** — Visible version number in header
+- **Allocator overhead** — Models 12 GB ECE control plane overhead per allocator host; shows % of fleet capacity consumed
+- **Health banners** — Frozen cache sanity check (Elastic 5–10% guidance), CPU ingest adequacy heuristic, and cluster shard limit warning; suppressed on fresh load until the user interacts with the form
+
+### Export, Compare & Tools
+- **Export / Import JSON** — Full configuration round-trip (all inputs including compression ratio); filename includes client name and timestamp
+- **Compare Deployment** — Enter actual deployed values and diff against calculator recommendations with per-tier status pills (OK / Near / Under / Over) and Export Comparison JSON
+- **Print / PDF export** — Print button in header triggers a styled print layout: KPIs, node breakdown, storage breakdown, and shard summary; all input forms and UI chrome hidden
+- **Dark / Light mode** — Toggle in header; respects system preference on first load
+- **Version badge** — Links directly to this GitHub repository; opens in a new tab
 
 ## Usage
 
@@ -82,6 +89,7 @@ All formulas are documented in the [ECE Sizing Calculator User Guide](./ECE_Sizi
 |---|---|
 | `index.html` | Single-file application — all HTML, CSS, and JS |
 | `ECE_Sizing_Calculator_User_Guide.pdf` | 10-section client-facing user guide with formula reference and Elastic source citations |
+| `ece_guide.py` | Python script (ReportLab) that generates the PDF user guide |
 | `README.md` | This file |
 
 ## License
